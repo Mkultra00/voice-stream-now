@@ -73,11 +73,9 @@ export function respond(text: string, activeAlert: LiveAlert | null): Turn {
     const play = WEATHER_PLAYBOOK[key] ?? WEATHER_PLAYBOOK["generic"]!;
     const service = CRITICAL_FACTS.find((f) => f.id === play.serviceFact)!;
     const timing = expiryLine(activeAlert);
-    const steps = [
-      ...(timing ? [timing] : []),
-      ...play.steps,
-      alertHeadline(activeAlert),
-    ];
+    const steps = [timing, ...play.steps, alertHeadline(activeAlert)].filter(
+      (s): s is string => Boolean(s),
+    );
     return {
       headline: `${activeAlert.event}: ${play.now}`,
       spoken: play.spoken,
