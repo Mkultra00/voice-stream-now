@@ -1,6 +1,6 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, Polygon, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Polygon, Polyline, Popup, useMap } from "react-leaflet";
 import { useEffect } from "react";
 
 import type { Place } from "@/lib/places.functions";
@@ -27,16 +27,26 @@ function Recenter({ lat, lon }: { lat: number; lon: number }) {
   return null;
 }
 
+function FitRoute({ path }: { path: [number, number][] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (path.length > 1) map.fitBounds(path, { padding: [28, 28] });
+  }, [map, path]);
+  return null;
+}
+
 export default function MapView({
   lat,
   lon,
   places,
   polygon,
+  routePath = [],
 }: {
   lat: number;
   lon: number;
   places: Place[];
   polygon: [number, number][] | null;
+  routePath?: [number, number][];
 }) {
   return (
     <MapContainer
@@ -50,9 +60,11 @@ export default function MapView({
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <Recenter lat={lat} lon={lon} />
+      {routePath.length > 1 && <FitRoute path={routePath} />}
       {polygon && (
         <Polygon positions={polygon} pathOptions={{ color: "#ef4444", weight: 2, fillOpacity: 0.15 }} />
       )}
+      {routePath.length > 1 && <Polyline positions={routePath} pathOptions={{ color: "#fbbf24", weight: 5 }} />}
       <Marker position={[lat, lon]} icon={userIcon} />
       {places.map((p) => (
         <Marker key={p.id} position={[p.lat, p.lon]} icon={placeIcon}>
