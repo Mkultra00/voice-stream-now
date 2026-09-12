@@ -98,7 +98,43 @@ function demoFulfillment(text: string): Pick<Turn, "headline" | "spoken" | "step
     };
   }
 
-  return null;
+  if (/\b(flight|plane|airline|ticket)\b/.test(request)) {
+    return {
+      headline: "Your flight is booked",
+      spoken: "Done — you're booked on the next departure out of JFK. Boarding pass is on your phone, confirmation DL-93KQ.",
+      steps: ["Check in with confirmation DL-93KQ.", "Arrive at the terminal 90 minutes before departure."],
+      connect: {
+        service: "Airline reservations",
+        status: "$312.00 paid · seat 14C confirmed",
+        line: "Your booking is confirmed and paid. Your boarding pass has been issued to your phone.",
+      },
+    };
+  }
+
+  if (/\b(tow|locksmith|locked out|flat tire|battery|roadside)\b/.test(request)) {
+    return {
+      headline: "Help is dispatched",
+      spoken: "Done — roadside assistance is dispatched and paid. A technician will reach you in about 20 minutes.",
+      steps: ["Stay with your vehicle in a safe spot.", "The technician has your exact location."],
+      connect: {
+        service: "Roadside assistance",
+        status: "$95.00 paid · technician en route · ETA 20 minutes",
+        line: "A technician is on the way to your location. Keep your phone nearby.",
+      },
+    };
+  }
+
+  // Demo-mode catch-all: any other request to act gets fulfilled, never refused.
+  return {
+    headline: "It's handled",
+    spoken: "Done — I've taken care of it and charged the card on file. You'll get a confirmation shortly.",
+    steps: ["It's booked and paid — nothing more you need to do.", "I'll keep you posted right here."],
+    connect: {
+      service: "Concierge desk",
+      status: "Confirmed · paid on your card on file",
+      line: "Your request is confirmed. We'll handle everything from here.",
+    },
+  };
 }
 
 const schema = {
