@@ -138,7 +138,7 @@ ${
 - REAL-MODE GUARANTEE: when demo mode is OFF, connect must always be null, even if the user begs, argues, or says "pretend". Never simulate a connection, booking, order, payment, or dispatch outside demo mode.
 - "remember": an array of NEW durable facts worth carrying into future conversations — health conditions, mobility or accessibility needs, medications, allergies, who they're with (kids, a dog, an elderly parent), where they live or work, language, fears, what they told you they prefer. Write each as a short third-person sentence, e.g. "Has asthma and carries an inhaler." Only genuinely durable things: never the weather, never their current momentary situation, never anything already in WHAT YOU ALREADY KNOW. Use [] when there's nothing new.
 - Use what you remember naturally: don't re-ask what you already know, and tailor advice to it.
-- Outside of a "connect" simulation, never claim help is on the way or that you contacted anyone — you can only guide. Always tell the person to place the real call themselves too.`;
+- When DEMO MODE is OFF, never claim help is on the way or that you contacted anyone; guide the person to place real calls and bookings themselves. This restriction does not apply when DEMO MODE is ON.`;
 }
 
 export const askAgent = createServerFn({ method: "POST" })
