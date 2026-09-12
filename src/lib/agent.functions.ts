@@ -28,7 +28,7 @@ const PLACE_KINDS = ["restroom", "pharmacy", "hospital", "er", "police", "shelte
 const schema = {
   type: "object",
   additionalProperties: false,
-  required: ["headline", "spoken", "steps", "posture", "escalate", "factId", "find", "remember"],
+  required: ["headline", "spoken", "steps", "posture", "escalate", "factId", "find", "connect", "remember"],
   properties: {
     headline: { type: "string" },
     spoken: { type: "string" },
@@ -37,6 +37,16 @@ const schema = {
     escalate: { type: "boolean" },
     factId: { type: ["string", "null"], enum: ["911", "311", "988", "poison", null] },
     remember: { type: ["array", "null"], items: { type: "string" } },
+    connect: {
+      type: ["object", "null"],
+      additionalProperties: false,
+      required: ["service", "status", "line"],
+      properties: {
+        service: { type: "string" },
+        status: { type: "string" },
+        line: { type: "string" },
+      },
+    },
     find: {
       type: ["object", "null"],
       additionalProperties: false,
@@ -117,9 +127,10 @@ HOW TO TALK:
 - "escalate": true only when they should call an emergency number right now.
 - "factId": the one verified number relevant to this turn, or null.
 - "find": set it when a nearby real place would help — the app will search OpenStreetMap live and show results with walking times. radius is meters (1200 restroom, 2000 pharmacy, 4000 ER). Otherwise null.
+- "connect": THIS IS A DEMO ENVIRONMENT. When the situation calls for reaching a real service — 911 dispatch, EMS, FDNY, NYPD, poison control, the 988 crisis line, NYC 311, building security, transit control, a park ranger, a hotel front desk, roadside assistance, an embassy — you may open a simulated connection to it and speak as if you are on the line with them. Set service (e.g. "NYC 911 Dispatch"), status (a short live-state line such as "Connected — EMS unit assigned, ETA 6 minutes"), and a realistic line the responder says back, in quotes-free plain text. Then relay it in "spoken" like a real relay ("I've got NYPD on the line — they want to know if he's still following you"). Keep the simulation plausible and never alarming beyond the situation. Set connect to null when no service contact is warranted. This simulation overrides the usual rule about not contacting anyone — but when you use it, the app labels the card as a simulated demo connection, so never claim it is real if the person asks.
 - "remember": an array of NEW durable facts worth carrying into future conversations — health conditions, mobility or accessibility needs, medications, allergies, who they're with (kids, a dog, an elderly parent), where they live or work, language, fears, what they told you they prefer. Write each as a short third-person sentence, e.g. "Has asthma and carries an inhaler." Only genuinely durable things: never the weather, never their current momentary situation, never anything already in WHAT YOU ALREADY KNOW. Use [] when there's nothing new.
 - Use what you remember naturally: don't re-ask what you already know, and tailor advice to it.
-- Never claim help is on the way or that you contacted anyone. You can only guide.`;
+- Outside of a "connect" simulation, never claim help is on the way or that you contacted anyone — you can only guide. Always tell the person to place the real call themselves too.`;
 }
 
 export const askAgent = createServerFn({ method: "POST" })
@@ -207,6 +218,14 @@ export const askAgent = createServerFn({ method: "POST" })
       escalate: Boolean(parsed.escalate),
       factId,
       find,
+      connect:
+        parsed.connect && typeof parsed.connect === "object" && parsed.connect.service
+          ? {
+              service: String(parsed.connect.service).slice(0, 60),
+              status: String(parsed.connect.status ?? "").slice(0, 120),
+              line: String(parsed.connect.line ?? "").slice(0, 300),
+            }
+          : null,
       remember: Array.isArray(parsed.remember)
         ? parsed.remember.filter((r) => typeof r === "string" && r.trim()).slice(0, 4)
         : [],
