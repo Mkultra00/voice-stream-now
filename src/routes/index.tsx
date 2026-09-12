@@ -279,14 +279,14 @@ function Concierge() {
     });
     setSimCall(call);
     setSimStep(0);
-    void speak(call.lines[0].text);
+    void speak(call.lines[0]?.text ?? "");
   };
 
   const advanceSimCall = () => {
     if (!simCall) return;
     const next = Math.min(simStep + 1, simCall.lines.length - 1);
     setSimStep(next);
-    void speak(simCall.lines[next].text);
+    void speak(simCall.lines[next]?.text ?? "");
   };
 
   return (
