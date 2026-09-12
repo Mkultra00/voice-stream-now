@@ -88,6 +88,26 @@ export function respond(text: string, activeAlert: LiveAlert | null): Turn {
     };
   }
 
+  // 2b. Weather question with no active warning — say so, with prep tips.
+  if (!activeAlert && WEATHER_TOPIC.test(clean)) {
+    return {
+      headline: "No active weather warning here right now",
+      spoken:
+        "Good news: there is no active National Weather Service warning for your location right now. I'll keep checking, and if one is issued I'll show it here.",
+      steps: [
+        "No NWS warning is in effect for your location right now.",
+        "This page checks live alerts continuously — a new warning appears automatically.",
+        "For forecast details, say \"weather\" again after a warning is issued and I'll give you exact steps.",
+        "For non-emergency city services (flooding, heat, shelter info), call 311.",
+      ],
+      posture: "calm",
+      escalate: false,
+      factId: "311",
+      find: null,
+      provenance: "Live NWS alert check returned no active warnings; 311 from verified critical facts.",
+    };
+  }
+
   // 3. Everyday valet: nearby places from OpenStreetMap.
   for (const intent of PLACE_INTENTS) {
     if (intent.patterns.test(clean)) {
