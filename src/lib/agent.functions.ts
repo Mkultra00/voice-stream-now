@@ -226,14 +226,15 @@ export const askAgent = createServerFn({ method: "POST" })
       escalate: Boolean(parsed.escalate),
       factId,
       find,
-      connect:
-        parsed.connect && typeof parsed.connect === "object" && parsed.connect.service
+      connect: data.demoMode
+        ? parsed.connect && typeof parsed.connect === "object" && parsed.connect.service
           ? {
               service: String(parsed.connect.service).slice(0, 60),
               status: String(parsed.connect.status ?? "").slice(0, 120),
               line: String(parsed.connect.line ?? "").slice(0, 300),
             }
-          : null,
+          : null
+        : null,
       remember: Array.isArray(parsed.remember)
         ? parsed.remember.filter((r) => typeof r === "string" && r.trim()).slice(0, 4)
         : [],
