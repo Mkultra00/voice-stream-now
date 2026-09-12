@@ -21,6 +21,7 @@ import { respond, postureFromAlerts, type Turn } from "@/lib/concierge";
 import { CRITICAL_FACTS, FACTS_VERIFIED_ON, POSTURE_LABEL, type Posture } from "@/lib/critical-facts";
 import { buildDemoAlert, DEMO_ALERT_LABELS, type DemoAlertKey } from "@/lib/demo-alerts";
 import { speak, startRecording, stopSpeaking, transcribe, type Recorder } from "@/lib/recorder";
+import { formatDistance, formatWalk } from "@/lib/walk";
 
 const MapView = lazy(() => import("@/components/MapView"));
 
@@ -346,7 +347,7 @@ function Concierge() {
                   <div>
                     <h3 className="font-medium">{p.name}</h3>
                     <p className="text-xs text-muted-foreground">
-                      {p.walkMin} min walk · {p.distanceM} m
+                      {formatWalk(p.walkMin)} · {formatDistance(p.distanceM)}
                       {p.address && ` · ${p.address}`}
                       {p.openNow === true && " · open 24/7"}
                       {p.openingHours && p.openNow !== true && ` · ${p.openingHours}`}

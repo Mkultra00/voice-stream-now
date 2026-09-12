@@ -1,3 +1,4 @@
+import { walkMinutes } from "./walk";
 import type { Place, PlaceKind } from "./places.functions";
 
 // Curated NYC fallback so a live demo never shows an empty result when the
@@ -68,6 +69,9 @@ function haversine(aLat: number, aLon: number, bLat: number, bLon: number): numb
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
+// Seeds are NYC-only: never present them to someone standing far outside the city.
+const MAX_FALLBACK_M = 25_000;
+
 export function fallbackPlaces(kind: PlaceKind, lat: number, lon: number, limit: number): Place[] {
   return SEEDS.filter((s) => s.kind === kind)
     .map((s, i): Place => {
@@ -79,7 +83,7 @@ export function fallbackPlaces(kind: PlaceKind, lat: number, lon: number, limit:
         lat: s.lat,
         lon: s.lon,
         distanceM,
-        walkMin: Math.max(1, Math.round(distanceM / 80)),
+        walkMin: walkMinutes(distanceM),
         openingHours: s.openingHours ?? null,
         phone: s.phone ?? null,
         address: s.address ?? null,
@@ -87,6 +91,7 @@ export function fallbackPlaces(kind: PlaceKind, lat: number, lon: number, limit:
         source: "OpenStreetMap (cached local copy)",
       };
     })
+    .filter((p) => p.distanceM <= MAX_FALLBACK_M)
     .sort((a, b) => a.distanceM - b.distanceM)
     .slice(0, limit);
 }
