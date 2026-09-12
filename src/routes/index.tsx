@@ -24,6 +24,7 @@ import { buildDemoAlert, DEMO_ALERT_LABELS, type DemoAlertKey } from "@/lib/demo
 import { speak, startRecording, stopSpeaking, transcribe, type Recorder } from "@/lib/recorder";
 import { formatDistance, formatWalk } from "@/lib/walk";
 import { getWalkingDirections, type WalkingDirections } from "@/lib/directions.functions";
+import { forgetAll, loadMemory, loadMessages, mergeMemory, saveMemory, saveMessages } from "@/lib/memory";
 
 const MapView = lazy(() => import("@/components/MapView"));
 
@@ -74,6 +75,7 @@ function Concierge() {
   const [tapCount, setTapCount] = useState(0);
 
   const [messages, setMessages] = useState<Msg[]>([]);
+  const [memory, setMemory] = useState<string[]>([]);
   const [turn, setTurn] = useState<Turn | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [placesSource, setPlacesSource] = useState<string | null>(null);
@@ -86,9 +88,23 @@ function Concierge() {
   const [doneSteps, setDoneSteps] = useState<number[]>([]);
   const recorderRef = useRef<Recorder | null>(null);
   const messagesRef = useRef<Msg[]>([]);
+  const memoryRef = useRef<string[]>([]);
+  const hydrated = useRef(false);
   useEffect(() => {
     messagesRef.current = messages;
+    if (hydrated.current) saveMessages(messages);
   }, [messages]);
+  useEffect(() => {
+    memoryRef.current = memory;
+    if (hydrated.current) saveMemory(memory);
+  }, [memory]);
+
+  // Restore what the concierge remembers about this person.
+  useEffect(() => {
+    setMessages(loadMessages());
+    setMemory(loadMemory());
+    hydrated.current = true;
+  }, []);
 
   const activeAlert = demoAlert ?? liveAlerts[0] ?? null;
   const posture: Posture = turn?.posture ?? (demoAlert ? "shelter" : postureFromAlerts(liveAlerts));
@@ -139,6 +155,7 @@ function Concierge() {
             data: {
               text,
               history,
+              memory: memoryRef.current,
               placeLabel: locLabel,
               localTime: new Date().toLocaleString([], { weekday: "long", hour: "numeric", minute: "2-digit" }),
               alert: activeAlert
@@ -154,6 +171,10 @@ function Concierge() {
         } catch {
           result = respond(text, activeAlert, ctx);
         }
+      }
+      if ("remember" in result && Array.isArray((result as { remember?: string[] }).remember)) {
+        const learned = (result as { remember?: string[] }).remember ?? [];
+        if (learned.length) setMemory((prev) => mergeMemory(prev, learned));
       }
       setTurn(result);
       setMessages((m) => [...m, { id: Date.now() + 1, role: "concierge", text: result.spoken }]);
@@ -464,6 +485,40 @@ function Concierge() {
                 {m.text}
               </p>
             ))}
+          </section>
+        )}
+
+        {/* What the concierge remembers */}
+        {(memory.length > 0 || messages.length > 0) && (
+          <section className="rounded-2xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-display text-sm font-bold uppercase tracking-wide text-muted-foreground">
+                What it remembers about you
+              </h2>
+              <button
+                onClick={() => {
+                  forgetAll();
+                  setMemory([]);
+                  setMessages([]);
+                }}
+                className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground"
+              >
+                Forget me
+              </button>
+            </div>
+            {memory.length > 0 ? (
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-sm">
+                {memory.map((m) => (
+                  <li key={m}>{m}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Nothing learned yet — tell it about conditions, meds, or who you&apos;re with and it will
+                carry that into later conversations.
+              </p>
+            )}
+            <p className="mt-3 text-[11px] text-muted-foreground">Kept on this device only.</p>
           </section>
         )}
 
