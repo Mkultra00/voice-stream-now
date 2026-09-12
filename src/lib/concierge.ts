@@ -16,6 +16,7 @@ export type Turn = {
   escalate: boolean;
   factId: string | null;
   find: { kind: PlaceKind; label: string; radius: number } | null;
+  connect: { service: string; status: string; line: string } | null;
   provenance: string;
 };
 
