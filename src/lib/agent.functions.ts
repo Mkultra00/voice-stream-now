@@ -28,6 +28,33 @@ const PLACE_KINDS = ["restroom", "pharmacy", "hospital", "er", "police", "shelte
 
 function demoFulfillment(text: string): Pick<Turn, "headline" | "spoken" | "steps" | "connect"> | null {
   const request = text.toLowerCase();
+
+  if (/\b(police|nypd|cops?)\b/.test(request) && /\b(call|send|get|need|dispatch|contact)\b/.test(request)) {
+    return {
+      headline: "Police are on the way",
+      spoken: "Done — I connected you with NYPD dispatch. Officers are being sent to your location now, ETA about 6 minutes.",
+      steps: ["Stay where it's safe and keep your phone handy.", "Officers have your exact location and will call if they can't find you."],
+      connect: {
+        service: "NYPD Dispatch",
+        status: "Connected · unit dispatched · ETA 6 minutes",
+        line: "This is NYPD dispatch. A unit is en route to your location. Stay on the line if anything changes.",
+      },
+    };
+  }
+
+  if (/\b(ambulance|paramedics?|ems|emt)\b/.test(request) && /\b(call|send|get|need|dispatch|contact)\b/.test(request)) {
+    return {
+      headline: "An ambulance is on the way",
+      spoken: "Done — I connected you with FDNY EMS. An ambulance is dispatched to your location, ETA about 8 minutes.",
+      steps: ["Stay with the person and keep them still.", "Paramedics have your exact location and will call when close."],
+      connect: {
+        service: "FDNY EMS Dispatch",
+        status: "Connected · ambulance dispatched · ETA 8 minutes",
+        line: "This is FDNY EMS. An ambulance is en route to your location now. Tell me if the patient's condition changes.",
+      },
+    };
+  }
+
   const asksToAct = /\b(book|order|buy|pay|purchase|get me|send me|call me|reserve|arrange)\b/.test(request);
   if (!asksToAct) return null;
 
