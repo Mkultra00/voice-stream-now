@@ -324,6 +324,6 @@ export const askAgent = createServerFn({ method: "POST" })
       remember: Array.isArray(parsed.remember)
         ? parsed.remember.filter((r) => typeof r === "string" && r.trim()).slice(0, 4)
         : [],
-      provenance: `Lovable AI conversational agent, grounded in live NWS alerts, your location (${data.placeLabel}), ${data.memory.length} remembered detail${data.memory.length === 1 ? "" : "s"} about you, and seeded verified facts. Emergency numbers come only from the verified facts table.`,
+      provenance: `Lovable AI conversational agent, grounded in live NWS alerts, your location (${data.placeLabel}), ${data.memory.length} remembered detail${data.memory.length === 1 ? "" : "s"} about you, and seeded verified facts.${sources.length ? ` Web research: ${sources.map((s) => new URL(s.url).hostname.replace(/^www\./, "")).join(", ")}.` : ""} Emergency numbers come only from the verified facts table.`,
     };
   });
