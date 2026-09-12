@@ -12,7 +12,7 @@ type OsrmStep = {
   distance: number;
   duration: number;
   name?: string;
-  maneuver?: { type?: string; modifier?: string };
+  maneuver?: { type?: string; modifier?: string; location?: [number, number] };
 };
 
 type OsrmResponse = {
@@ -32,18 +32,34 @@ export type WalkingDirections = {
   steps: Array<{ instruction: string; distanceM: number }>;
 };
 
-function stepInstruction(step: OsrmStep) {
+async function streetNameAt(lon: number, lat: number): Promise<string> {
+  try {
+    const url = `https://photon.komoot.io/reverse?lon=${lon}&lat=${lat}`;
+    const response = await fetch(url, {
+      headers: { "User-Agent": "EmergencyConcierge/1.0" },
+      signal: AbortSignal.timeout(4_000),
+    });
+    if (!response.ok) return "";
+    const payload = (await response.json()) as { features?: Array<{ properties?: { street?: string; name?: string } }> };
+    return payload.features?.[0]?.properties?.street ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function stepInstruction(step: OsrmStep, streetName: string) {
   const type = step.maneuver?.type ?? "continue";
   const modifier = step.maneuver?.modifier;
-  const street = step.name ? ` onto ${step.name}` : "";
+  const turnDir = modifier ? modifier.replace(/\b\w/g, (c) => c.toUpperCase()) : "ahead";
+  const street = streetName ? ` onto ${streetName}` : "";
 
-  if (type === "depart") return `Start${step.name ? ` on ${step.name}` : ""}`;
+  if (type === "depart") return `Start on ${streetName || "the street"}${modifier ? `, heading ${modifier}` : ""}`;
   if (type === "arrive") return "Arrive at your destination";
   if (type === "roundabout" || type === "rotary") return `Enter the roundabout${street}`;
-  if (type === "new name") return `Continue${street}`;
-  if (type === "fork") return `Keep ${modifier ?? "straight"}${street}`;
-  if (type === "end of road") return `At the end of the road, turn ${modifier ?? "ahead"}${street}`;
-  if (type === "turn") return `Turn ${modifier ?? "ahead"}${street}`;
+  if (type === "new name") return streetName ? `Continue onto ${streetName}` : "Continue straight";
+  if (type === "fork") return `Keep ${turnDir.toLowerCase()}${street}`;
+  if (type === "end of road") return `At the end of the road, turn ${turnDir.toLowerCase()}${street || " onto the next street"}`;
+  if (type === "turn") return `Turn ${turnDir.toLowerCase()}${street || " at the next street"}`;
   return `${modifier ? `Continue ${modifier}` : "Continue"}${street}`;
 }
 
@@ -70,9 +86,20 @@ export const getWalkingDirections = createServerFn({ method: "GET" })
       distanceM: Math.round(route.distance),
       durationMin: Math.max(1, Math.round(route.duration / 60)),
       path: route.geometry.coordinates.map(([lon, lat]) => [lat, lon]),
-      steps: route.legs.flatMap((leg) => leg.steps).map((step) => ({
-        instruction: stepInstruction(step),
-        distanceM: Math.round(step.distance),
-      })),
+      steps: await (async () => {
+        const allSteps = route.legs.flatMap((leg) => leg.steps);
+        // Foot routing often leaves segments unnamed; reverse-geocode each
+        // turn point so every instruction can name a street.
+        const names = await Promise.all(
+          allSteps.map((step) => {
+            const loc = step.maneuver?.location;
+            return step.name ? Promise.resolve(step.name) : loc ? streetNameAt(loc[0], loc[1]) : Promise.resolve("");
+          }),
+        );
+        return allSteps.map((step, i) => ({
+          instruction: stepInstruction(step, step.name || names[i] || allSteps.slice(i + 1).find((s) => s.name)?.name || ""),
+          distanceM: Math.round(step.distance),
+        }));
+      })(),
     };
   });
