@@ -10,9 +10,9 @@ import {
   Phone,
   RefreshCw,
   ShieldAlert,
+  X,
   Volume2,
 } from "lucide-react";
-import { toast } from "sonner";
 
 import { getAlerts, type LiveAlert } from "@/lib/alerts.functions";
 import { findPlaces, type Place } from "@/lib/places.functions";
@@ -22,6 +22,7 @@ import { CRITICAL_FACTS, FACTS_VERIFIED_ON, POSTURE_LABEL, type Posture } from "
 import { buildDemoAlert, DEMO_ALERT_LABELS, type DemoAlertKey } from "@/lib/demo-alerts";
 import { speak, startRecording, stopSpeaking, transcribe, type Recorder } from "@/lib/recorder";
 import { formatDistance, formatWalk } from "@/lib/walk";
+import { getWalkingDirections, type WalkingDirections } from "@/lib/directions.functions";
 
 const MapView = lazy(() => import("@/components/MapView"));
 
@@ -58,6 +59,7 @@ function Concierge() {
   const alertsFn = useServerFn(getAlerts);
   const placesFn = useServerFn(findPlaces);
   const geoFn = useServerFn(describeLocation);
+  const directionsFn = useServerFn(getWalkingDirections);
 
   const [loc, setLoc] = useState(FALLBACK);
   const [locLabel, setLocLabel] = useState("locating…");
@@ -77,6 +79,8 @@ function Concierge() {
   const [listening, setListening] = useState(false);
   const [typed, setTyped] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [directions, setDirections] = useState<{ place: Place; route: WalkingDirections } | null>(null);
+  const [loadingDirections, setLoadingDirections] = useState<string | null>(null);
   const [doneSteps, setDoneSteps] = useState<number[]>([]);
   const recorderRef = useRef<Recorder | null>(null);
 
@@ -183,6 +187,21 @@ function Concierge() {
     setDemoAlert(a);
     setDemoMode(true);
     void handleText("What should I do, I'm on the street");
+  };
+
+  const showDirections = async (place: Place) => {
+    setError(null);
+    setLoadingDirections(place.id);
+    try {
+      const route = await directionsFn({
+        data: { fromLat: loc.lat, fromLon: loc.lon, toLat: place.lat, toLon: place.lon },
+      });
+      setDirections({ place, route });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Walking directions are unavailable right now.");
+    } finally {
+      setLoadingDirections(null);
+    }
   };
 
   const versionTap = () => {
@@ -331,6 +350,7 @@ function Concierge() {
                   lon={loc.lon}
                   places={places}
                   polygon={activeAlert?.polygon ?? null}
+                  routePath={directions?.route.path ?? []}
                 />
               </ClientOnly>
             </Suspense>
@@ -354,39 +374,51 @@ function Concierge() {
                     </p>
                   </div>
                   <button
-                    onClick={() => {
-                      const url = `https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route=${loc.lat},${loc.lon};${p.lat},${p.lon}`;
-                      const fallback = () => {
-                        const showLink = () =>
-                          toast.info("Copy this directions link into your browser:", {
-                            description: url,
-                            duration: 15000,
-                          });
-                        try {
-                          void navigator.clipboard
-                            .writeText(url)
-                            .then(() => toast.success("Directions link copied — paste it into your browser."))
-                            .catch(showLink);
-                        } catch {
-                          showLink();
-                        }
-                      };
-                      let opened: Window | null = null;
-                      try {
-                        opened = window.open(url, "_blank", "noopener,noreferrer");
-                      } catch {
-                        opened = null;
-                      }
-                      if (!opened) fallback();
-                    }}
+                    onClick={() => void showDirections(p)}
+                    disabled={loadingDirections === p.id}
                     className="shrink-0 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-accent-foreground"
                   >
-                    Directions
+                    {loadingDirections === p.id ? <Loader2 className="size-4 animate-spin" /> : "Directions"}
                   </button>
                 </div>
               </article>
             ))}
             {placesSource && <p className="text-xs text-muted-foreground">Source: {placesSource}</p>}
+          </section>
+        )}
+
+        {directions && (
+          <section className="border-t border-border pt-4" aria-label={`Walking directions to ${directions.place.name}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase text-accent">Walking directions</p>
+                <h2 className="font-display text-lg font-bold">{directions.place.name}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {formatWalk(directions.route.durationMin)} · {formatDistance(directions.route.distanceM)}
+                </p>
+              </div>
+              <button
+                onClick={() => setDirections(null)}
+                className="grid size-10 shrink-0 place-items-center rounded-lg border border-border"
+                aria-label="Close directions"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <ol className="mt-3 divide-y divide-border border-y border-border">
+              {directions.route.steps.map((step, index) => (
+                <li key={`${step.instruction}-${index}`} className="flex gap-3 py-3 text-sm">
+                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-accent text-xs font-bold text-accent-foreground">
+                    {index + 1}
+                  </span>
+                  <span className="flex-1">{step.instruction}</span>
+                  {step.distanceM > 0 && (
+                    <span className="shrink-0 text-xs text-muted-foreground">{formatDistance(step.distanceM)}</span>
+                  )}
+                </li>
+              ))}
+            </ol>
+            <p className="mt-2 text-xs text-muted-foreground">Route: OpenStreetMap routing service</p>
           </section>
         )}
 
