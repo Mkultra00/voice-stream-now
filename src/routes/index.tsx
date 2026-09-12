@@ -387,6 +387,53 @@ function Concierge() {
           </section>
         )}
 
+        {/* Synthetic call in progress */}
+        {simCall && (
+          <section className="rounded-2xl border-2 border-demo bg-demo/10 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="relative flex size-2.5">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-demo opacity-75" />
+                  <span className="relative inline-flex size-2.5 rounded-full bg-demo" />
+                </span>
+                <h2 className="font-display text-base font-bold">
+                  {simCall.service} · {simCall.number}
+                </h2>
+              </div>
+              <span className="rounded-full bg-demo px-2 py-0.5 text-[10px] font-bold uppercase text-demo-foreground">
+                Simulated
+              </span>
+            </div>
+            <p className="mt-1 text-xs font-medium text-muted-foreground">{simCall.status}</p>
+            <div className="mt-3 space-y-2">
+              {simCall.lines.slice(0, simStep + 1).map((l, i) => (
+                <p key={i} className="rounded-xl bg-card p-3 text-sm italic">
+                  “{l.text}”
+                </p>
+              ))}
+            </div>
+            <div className="mt-3 flex gap-2">
+              {simStep < simCall.lines.length - 1 && (
+                <button
+                  onClick={advanceSimCall}
+                  className="rounded-lg bg-demo px-3 py-2 text-xs font-bold text-demo-foreground"
+                >
+                  Continue call
+                </button>
+              )}
+              <button
+                onClick={() => setSimCall(null)}
+                className="rounded-lg border border-border px-3 py-2 text-xs font-medium"
+              >
+                End call
+              </button>
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Synthetic demo call — no real service was contacted.
+            </p>
+          </section>
+        )}
+
         {/* Simulated service connection */}
         {turn?.connect && (
           <section className="rounded-2xl border-2 border-demo bg-demo/10 p-4">
