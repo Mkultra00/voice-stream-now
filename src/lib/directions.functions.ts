@@ -32,18 +32,22 @@ export type WalkingDirections = {
   steps: Array<{ instruction: string; distanceM: number }>;
 };
 
-function stepInstruction(step: OsrmStep) {
+function stepInstruction(step: OsrmStep, nextName?: string) {
   const type = step.maneuver?.type ?? "continue";
   const modifier = step.maneuver?.modifier;
-  const street = step.name ? ` onto ${step.name}` : "";
+  const turnDir = modifier ? modifier.replace(/\b\w/g, (c) => c.toUpperCase()) : "ahead";
+  // In OSRM each step's name is the street you are on *after* the maneuver;
+  // fall back to the next step's street so turns always name a road.
+  const streetName = step.name || nextName || "";
+  const street = streetName ? ` onto ${streetName}` : "";
 
-  if (type === "depart") return `Start${step.name ? ` on ${step.name}` : ""}`;
+  if (type === "depart") return `Start on ${step.name || "the street"}${modifier ? `, heading ${modifier}` : ""}`;
   if (type === "arrive") return "Arrive at your destination";
   if (type === "roundabout" || type === "rotary") return `Enter the roundabout${street}`;
-  if (type === "new name") return `Continue${street}`;
-  if (type === "fork") return `Keep ${modifier ?? "straight"}${street}`;
-  if (type === "end of road") return `At the end of the road, turn ${modifier ?? "ahead"}${street}`;
-  if (type === "turn") return `Turn ${modifier ?? "ahead"}${street}`;
+  if (type === "new name") return streetName ? `Continue onto ${streetName}` : "Continue straight";
+  if (type === "fork") return `Keep ${turnDir.toLowerCase()}${street}`;
+  if (type === "end of road") return `At the end of the road, turn ${turnDir.toLowerCase()}${street || " onto the next street"}`;
+  if (type === "turn") return `Turn ${turnDir.toLowerCase()}${street || " at the next street"}`;
   return `${modifier ? `Continue ${modifier}` : "Continue"}${street}`;
 }
 
