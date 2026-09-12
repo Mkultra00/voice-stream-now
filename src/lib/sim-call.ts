@@ -57,7 +57,7 @@ export function buildSimCall(factId: string, number: string, ctx: Ctx): SimCall 
   return {
     service: s.service,
     number,
-    status: `Connected ${ctx.localTime} · simulated`,
+    status: `Connected ${ctx.localTime}`,
     lines: [
       { who: s.service, text: s.opener(ctx) + alertNote },
       ...s.followups.map((text) => ({ who: s.service, text })),
