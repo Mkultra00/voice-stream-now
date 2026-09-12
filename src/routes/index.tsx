@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   Volume2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { getAlerts, type LiveAlert } from "@/lib/alerts.functions";
 import { findPlaces, type Place } from "@/lib/places.functions";
