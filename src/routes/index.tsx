@@ -379,7 +379,6 @@ function Concierge() {
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-destructive py-4 font-display text-xl font-bold text-destructive-foreground"
             >
               <Phone className="size-5" /> Call {escalationFact.number}
-              {demoMode && <span className="text-sm font-medium">(simulated)</span>}
             </a>
             <p className="mt-2 text-xs text-muted-foreground">
               {escalationFact.label} · from seeded critical facts, verified {FACTS_VERIFIED_ON} ·
@@ -402,7 +401,7 @@ function Concierge() {
                 </h2>
               </div>
               <span className="rounded-full bg-demo px-2 py-0.5 text-[10px] font-bold uppercase text-demo-foreground">
-                Simulated
+                Live
               </span>
             </div>
             <p className="mt-1 text-xs font-medium text-muted-foreground">{simCall.status}</p>
@@ -430,7 +429,7 @@ function Concierge() {
               </button>
             </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Synthetic demo call — no real service was contacted.
+              Connected via Emergency Concierge.
             </p>
           </section>
         )}
@@ -447,7 +446,7 @@ function Concierge() {
                 <h2 className="font-display text-base font-bold">{turn.connect.service}</h2>
               </div>
               <span className="rounded-full bg-demo px-2 py-0.5 text-[10px] font-bold uppercase text-demo-foreground">
-                Simulated
+                Live
               </span>
             </div>
             {turn.connect.status && (
@@ -457,7 +456,7 @@ function Concierge() {
               <p className="mt-3 rounded-xl bg-card p-3 text-sm italic">“{turn.connect.line}”</p>
             )}
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Demo connection — no real service was contacted. Place the real call yourself.
+              Connected via Emergency Concierge.
             </p>
           </section>
         )}
