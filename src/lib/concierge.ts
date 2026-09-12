@@ -62,18 +62,26 @@ export function respond(text: string, activeAlert: LiveAlert | null): Turn {
     }
   }
 
-  // 2. Active warning + a "what do I do" question -> seeded weather playbook.
-  if (activeAlert && HELP_NOW.test(clean)) {
-    const play = WEATHER_PLAYBOOK[playbookKeyFor(activeAlert.event)] ?? WEATHER_PLAYBOOK["generic"]!;
+  // 2. Active warning + a "what do I do" / weather question -> seeded playbook.
+  if (activeAlert && (HELP_NOW.test(clean) || WEATHER_TOPIC.test(clean))) {
+    const key = playbookKeyFor(activeAlert.event);
+    const play = WEATHER_PLAYBOOK[key] ?? WEATHER_PLAYBOOK["generic"]!;
+    const service = CRITICAL_FACTS.find((f) => f.id === play.serviceFact)!;
+    const timing = expiryLine(activeAlert);
+    const steps = [
+      ...(timing ? [timing] : []),
+      ...play.steps,
+      alertHeadline(activeAlert),
+    ];
     return {
-      headline: `${activeAlert.event}: stay off the street`,
+      headline: `${activeAlert.event}: ${play.now}`,
       spoken: play.spoken,
-      steps: play.steps,
-      posture: playbookKeyFor(activeAlert.event) === "flood" ? "shelter" : "shelter",
+      steps,
+      posture: "shelter",
       escalate: false,
-      factId: null,
-      find: { kind: "shelter", label: "Indoor public spaces near you", radius: 1200 },
-      provenance: `Seeded weather playbook for "${activeAlert.event}" + live NWS alert.`,
+      factId: play.serviceFact,
+      find: { kind: play.placeKind, label: play.placeLabel, radius: 1500 },
+      provenance: `Seeded ${key} playbook + live NWS alert (${activeAlert.source}). ${service.number} from verified critical facts.`,
     };
   }
 
