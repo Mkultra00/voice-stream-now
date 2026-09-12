@@ -21,6 +21,7 @@ import { respond, redFlagTurn, postureFromAlerts, type Turn } from "@/lib/concie
 import { askAgent } from "@/lib/agent.functions";
 import { CRITICAL_FACTS, FACTS_VERIFIED_ON, POSTURE_LABEL, type Posture } from "@/lib/critical-facts";
 import { buildDemoAlert, DEMO_ALERT_LABELS, type DemoAlertKey } from "@/lib/demo-alerts";
+import { buildSimCall, type SimCall } from "@/lib/sim-call";
 import { speak, startRecording, stopSpeaking, transcribe, type Recorder } from "@/lib/recorder";
 import { formatDistance, formatWalk } from "@/lib/walk";
 import { getWalkingDirections, type WalkingDirections } from "@/lib/directions.functions";
@@ -72,6 +73,8 @@ function Concierge() {
   const [demoMode, setDemoMode] = useState(false);
   const [demoAlert, setDemoAlert] = useState<LiveAlert | null>(null);
   const [demoOpen, setDemoOpen] = useState(false);
+  const [simCall, setSimCall] = useState<SimCall | null>(null);
+  const [simStep, setSimStep] = useState(0);
   const [tapCount, setTapCount] = useState(0);
 
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -268,6 +271,24 @@ function Concierge() {
 
   const escalationFact = turn?.factId ? CRITICAL_FACTS.find((f) => f.id === turn.factId) : null;
 
+  const startSimCall = (factId: string, number: string) => {
+    const call = buildSimCall(factId, number, {
+      placeLabel: locLabel,
+      localTime: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+      alertEvent: activeAlert?.event ?? null,
+    });
+    setSimCall(call);
+    setSimStep(0);
+    void speak(call.lines[0]?.text ?? "");
+  };
+
+  const advanceSimCall = () => {
+    if (!simCall) return;
+    const next = Math.min(simStep + 1, simCall.lines.length - 1);
+    setSimStep(next);
+    void speak(simCall.lines[next]?.text ?? "");
+  };
+
   return (
     <div className="min-h-screen bg-background pb-32 font-sans text-foreground">
       {/* Alert banner */}
@@ -307,10 +328,31 @@ function Concierge() {
               : "NWS feed unavailable"}
             {checkedAt && ` · ${timeOf(checkedAt)}`}
           </span>
+          <button
+            onClick={() => {
+              const next = !demoMode;
+              setDemoMode(next);
+              if (!next) {
+                setDemoAlert(null);
+                setSimCall(null);
+              }
+            }}
+            aria-pressed={demoMode}
+            className={`rounded-full px-2.5 py-1 font-bold ${
+              demoMode
+                ? "bg-demo text-demo-foreground"
+                : "border border-border text-muted-foreground"
+            }`}
+          >
+            {demoMode ? "DEMO MODE ON" : "Demo mode"}
+          </button>
           {demoMode && (
-            <span className="rounded-full bg-demo px-2.5 py-1 font-bold text-demo-foreground">
-              DEMO MODE ON
-            </span>
+            <button
+              onClick={() => setDemoOpen((o) => !o)}
+              className="rounded-full border border-demo px-2.5 py-1 font-medium text-demo"
+            >
+              Demo controls
+            </button>
           )}
           <span className="rounded-full border border-border px-2.5 py-1 text-muted-foreground">
             Demo — not an emergency service
@@ -328,15 +370,66 @@ function Concierge() {
             </div>
             <a
               href={demoMode ? undefined : `tel:${escalationFact.number.replace(/\D/g, "")}`}
-              onClick={(e) => demoMode && e.preventDefault()}
+              onClick={(e) => {
+                if (!demoMode) return;
+                e.preventDefault();
+                startSimCall(escalationFact.id, escalationFact.number);
+              }}
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-destructive py-4 font-display text-xl font-bold text-destructive-foreground"
             >
               <Phone className="size-5" /> Call {escalationFact.number}
-              {demoMode && <span className="text-sm font-medium">(demo-safe)</span>}
+              {demoMode && <span className="text-sm font-medium">(simulated)</span>}
             </a>
             <p className="mt-2 text-xs text-muted-foreground">
               {escalationFact.label} · from seeded critical facts, verified {FACTS_VERIFIED_ON} ·
               source {escalationFact.source}
+            </p>
+          </section>
+        )}
+
+        {/* Synthetic call in progress */}
+        {simCall && (
+          <section className="rounded-2xl border-2 border-demo bg-demo/10 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="relative flex size-2.5">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-demo opacity-75" />
+                  <span className="relative inline-flex size-2.5 rounded-full bg-demo" />
+                </span>
+                <h2 className="font-display text-base font-bold">
+                  {simCall.service} · {simCall.number}
+                </h2>
+              </div>
+              <span className="rounded-full bg-demo px-2 py-0.5 text-[10px] font-bold uppercase text-demo-foreground">
+                Simulated
+              </span>
+            </div>
+            <p className="mt-1 text-xs font-medium text-muted-foreground">{simCall.status}</p>
+            <div className="mt-3 space-y-2">
+              {simCall.lines.slice(0, simStep + 1).map((l, i) => (
+                <p key={i} className="rounded-xl bg-card p-3 text-sm italic">
+                  “{l.text}”
+                </p>
+              ))}
+            </div>
+            <div className="mt-3 flex gap-2">
+              {simStep < simCall.lines.length - 1 && (
+                <button
+                  onClick={advanceSimCall}
+                  className="rounded-lg bg-demo px-3 py-2 text-xs font-bold text-demo-foreground"
+                >
+                  Continue call
+                </button>
+              )}
+              <button
+                onClick={() => setSimCall(null)}
+                className="rounded-lg border border-border px-3 py-2 text-xs font-medium"
+              >
+                End call
+              </button>
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Synthetic demo call — no real service was contacted.
             </p>
           </section>
         )}
