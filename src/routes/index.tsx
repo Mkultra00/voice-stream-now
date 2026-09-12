@@ -61,6 +61,7 @@ function Concierge() {
   const placesFn = useServerFn(findPlaces);
   const geoFn = useServerFn(describeLocation);
   const directionsFn = useServerFn(getWalkingDirections);
+  const agentFn = useServerFn(askAgent);
 
   const [loc, setLoc] = useState(FALLBACK);
   const [locLabel, setLocLabel] = useState("locating…");
