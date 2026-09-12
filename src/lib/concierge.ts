@@ -97,12 +97,15 @@ export function respond(text: string, activeAlert: LiveAlert | null, ctx: Contex
     const play = WEATHER_PLAYBOOK[key] ?? WEATHER_PLAYBOOK["generic"]!;
     const service = CRITICAL_FACTS.find((f) => f.id === play.serviceFact)!;
     const timing = expiryLine(activeAlert);
-    const steps = [timing, ...play.steps, alertHeadline(activeAlert)].filter(
-      (s): s is string => Boolean(s),
-    );
+    const steps = [
+      timing,
+      ...play.steps,
+      alertHeadline(activeAlert),
+      `Context: ${activeAlert.event} is in effect where you are now (${here}), checked live within the last minute.`,
+    ].filter((s): s is string => Boolean(s));
     return {
       headline: `${activeAlert.event}: ${play.now}`,
-      spoken: play.spoken,
+      spoken: `${activeAlert.event} is in effect right now near ${here}. ${play.spoken}${timing ? ` It runs for the next ${timing.split("next ")[1]?.split(" (")[0] ?? "short while"}.` : ""}`,
       steps,
       posture: "shelter",
       escalate: false,
