@@ -36,12 +36,12 @@ function stepInstruction(step: OsrmStep, nextName?: string) {
   const type = step.maneuver?.type ?? "continue";
   const modifier = step.maneuver?.modifier;
   const turnDir = modifier ? modifier.replace(/\b\w/g, (c) => c.toUpperCase()) : "ahead";
-  // In OSRM each step's name is the street you are on *after* the maneuver;
-  // fall back to the next step's street so turns always name a road.
+  // In OSRM each step's name is the street you are on *after* the maneuver.
+  // Some segments are unnamed, so fall back to the next named street ahead.
   const streetName = step.name || nextName || "";
   const street = streetName ? ` onto ${streetName}` : "";
 
-  if (type === "depart") return `Start on ${step.name || "the street"}${modifier ? `, heading ${modifier}` : ""}`;
+  if (type === "depart") return `Start on ${step.name || streetName || "the street"}${modifier ? `, heading ${modifier}` : ""}`;
   if (type === "arrive") return "Arrive at your destination";
   if (type === "roundabout" || type === "rotary") return `Enter the roundabout${street}`;
   if (type === "new name") return streetName ? `Continue onto ${streetName}` : "Continue straight";
