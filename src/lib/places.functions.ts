@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import { fallbackPlaces } from "./fallback-places";
+
 // Nearby places from OpenStreetMap via the Overpass API. No API key needed.
 
 export type PlaceKind =
@@ -50,8 +52,8 @@ const FILTERS: Record<PlaceKind, string[]> = {
 };
 
 const ENDPOINTS = [
-  "https://overpass.osm.ch/api/interpreter",
   "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
   "https://overpass.private.coffee/api/interpreter",
 ];
 
@@ -102,7 +104,8 @@ export const findPlaces = createServerFn({ method: "POST" })
           });
           if (!res.ok) throw new Error(`Overpass ${res.status} at ${endpoint}`);
           const json = (await res.json()) as { elements?: OverpassElement[] };
-          elements = json.elements ?? [];
+          if (!json.elements || json.elements.length === 0) throw new Error(`Overpass empty at ${endpoint}`);
+          elements = json.elements;
           break outer;
         } catch (error) {
           console.error("Overpass request failed", error);
@@ -120,7 +123,16 @@ export const findPlaces = createServerFn({ method: "POST" })
       })
       .slice(0, Math.max(limit, 6));
 
-    if (places.length > 0) cache.set(cacheKey, { places, at: Date.now() });
+    if (places.length === 0) {
+      // Public Overpass mirrors are flaky; never leave the user with nothing.
+      return {
+        places: fallbackPlaces(kind, lat, lon, limit),
+        checkedAt: new Date().toISOString(),
+        source: "OpenStreetMap (cached local copy — live map service unavailable)",
+      };
+    }
+
+    cache.set(cacheKey, { places, at: Date.now() });
 
     return {
       places: places.slice(0, limit),
