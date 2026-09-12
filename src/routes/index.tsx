@@ -488,6 +488,40 @@ function Concierge() {
           </section>
         )}
 
+        {/* What the concierge remembers */}
+        {(memory.length > 0 || messages.length > 0) && (
+          <section className="rounded-2xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-display text-sm font-bold uppercase tracking-wide text-muted-foreground">
+                What it remembers about you
+              </h2>
+              <button
+                onClick={() => {
+                  forgetAll();
+                  setMemory([]);
+                  setMessages([]);
+                }}
+                className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground"
+              >
+                Forget me
+              </button>
+            </div>
+            {memory.length > 0 ? (
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-sm">
+                {memory.map((m) => (
+                  <li key={m}>{m}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Nothing learned yet — tell it about conditions, meds, or who you&apos;re with and it will
+                carry that into later conversations.
+              </p>
+            )}
+            <p className="mt-3 text-[11px] text-muted-foreground">Kept on this device only.</p>
+          </section>
+        )}
+
         {/* Evidence */}
         <section className="rounded-2xl border border-border bg-card p-4">
           <h2 className="font-display text-sm font-bold uppercase tracking-wide text-muted-foreground">
