@@ -381,46 +381,42 @@ function Concierge() {
                     {loadingDirections === p.id ? <Loader2 className="size-4 animate-spin" /> : "Directions"}
                   </button>
                 </div>
+                {directions?.place.id === p.id && (
+                  <div className="mt-3 border-t border-border pt-3" aria-label={`Walking directions to ${p.name}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm text-muted-foreground">
+                        {formatWalk(directions.route.durationMin)} · {formatDistance(directions.route.distanceM)} walk
+                      </p>
+                      <button
+                        onClick={() => setDirections(null)}
+                        className="grid size-8 shrink-0 place-items-center rounded-lg border border-border"
+                        aria-label="Close directions"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    </div>
+                    <ol className="mt-2 divide-y divide-border border-y border-border">
+                      {directions.route.steps.map((step, index) => (
+                        <li key={`${step.instruction}-${index}`} className="flex gap-3 py-2.5 text-sm">
+                          <span className="grid size-6 shrink-0 place-items-center rounded-full bg-accent text-xs font-bold text-accent-foreground">
+                            {index + 1}
+                          </span>
+                          <span className="flex-1">{step.instruction}</span>
+                          {step.distanceM > 0 && (
+                            <span className="shrink-0 text-xs text-muted-foreground">{formatDistance(step.distanceM)}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
+                    <p className="mt-2 text-xs text-muted-foreground">Route: OpenStreetMap routing service</p>
+                  </div>
+                )}
               </article>
             ))}
             {placesSource && <p className="text-xs text-muted-foreground">Source: {placesSource}</p>}
           </section>
         )}
 
-        {directions && (
-          <section className="border-t border-border pt-4" aria-label={`Walking directions to ${directions.place.name}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-bold uppercase text-accent">Walking directions</p>
-                <h2 className="font-display text-lg font-bold">{directions.place.name}</h2>
-                <p className="text-sm text-muted-foreground">
-                  {formatWalk(directions.route.durationMin)} · {formatDistance(directions.route.distanceM)}
-                </p>
-              </div>
-              <button
-                onClick={() => setDirections(null)}
-                className="grid size-10 shrink-0 place-items-center rounded-lg border border-border"
-                aria-label="Close directions"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
-            <ol className="mt-3 divide-y divide-border border-y border-border">
-              {directions.route.steps.map((step, index) => (
-                <li key={`${step.instruction}-${index}`} className="flex gap-3 py-3 text-sm">
-                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-accent text-xs font-bold text-accent-foreground">
-                    {index + 1}
-                  </span>
-                  <span className="flex-1">{step.instruction}</span>
-                  {step.distanceM > 0 && (
-                    <span className="shrink-0 text-xs text-muted-foreground">{formatDistance(step.distanceM)}</span>
-                  )}
-                </li>
-              ))}
-            </ol>
-            <p className="mt-2 text-xs text-muted-foreground">Route: OpenStreetMap routing service</p>
-          </section>
-        )}
 
         {/* Transcript */}
         {messages.length > 0 && (
