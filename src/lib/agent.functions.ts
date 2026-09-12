@@ -14,6 +14,7 @@ const Input = z.object({
     .array(z.object({ role: z.enum(["you", "concierge"]), text: z.string() }))
     .max(20)
     .default([]),
+  memory: z.array(z.string()).max(40).default([]),
   placeLabel: z.string(),
   localTime: z.string(),
   alert: z
@@ -27,7 +28,7 @@ const PLACE_KINDS = ["restroom", "pharmacy", "hospital", "er", "police", "shelte
 const schema = {
   type: "object",
   additionalProperties: false,
-  required: ["headline", "spoken", "steps", "posture", "escalate", "factId", "find"],
+  required: ["headline", "spoken", "steps", "posture", "escalate", "factId", "find", "remember"],
   properties: {
     headline: { type: "string" },
     spoken: { type: "string" },
@@ -35,6 +36,7 @@ const schema = {
     posture: { type: "string", enum: ["calm", "clarify", "shelter", "move", "seek-help"] },
     escalate: { type: "boolean" },
     factId: { type: ["string", "null"], enum: ["911", "311", "988", "poison", null] },
+    remember: { type: ["array", "null"], items: { type: "string" } },
     find: {
       type: ["object", "null"],
       additionalProperties: false,
@@ -64,6 +66,9 @@ LIVE CONTEXT (this is ground truth, use it naturally, never invent more):
       : "none in effect (feed checked within the last minute)"
   }
 
+WHAT YOU ALREADY KNOW ABOUT THIS PERSON (learned in earlier conversations, may be stale — confirm if it matters):
+${data.memory.length ? data.memory.map((m) => `- ${m}`).join("\n") : "- nothing yet; this is your first time talking with them"}
+
 VERIFIED FACTS — the ONLY phone numbers you may say:
 ${facts}
 Never state an address, a business's hours, or any other phone number. If you need a place, request a live lookup via "find" instead of naming one.
@@ -81,12 +86,14 @@ HOW TO TALK:
 - "escalate": true only when they should call an emergency number right now.
 - "factId": the one verified number relevant to this turn, or null.
 - "find": set it when a nearby real place would help — the app will search OpenStreetMap live and show results with walking times. radius is meters (1200 restroom, 2000 pharmacy, 4000 ER). Otherwise null.
+- "remember": an array of NEW durable facts worth carrying into future conversations — health conditions, mobility or accessibility needs, medications, allergies, who they're with (kids, a dog, an elderly parent), where they live or work, language, fears, what they told you they prefer. Write each as a short third-person sentence, e.g. "Has asthma and carries an inhaler." Only genuinely durable things: never the weather, never their current momentary situation, never anything already in WHAT YOU ALREADY KNOW. Use [] when there's nothing new.
+- Use what you remember naturally: don't re-ask what you already know, and tailor advice to it.
 - Never claim help is on the way or that you contacted anyone. You can only guide.`;
 }
 
 export const askAgent = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => Input.parse(d))
-  .handler(async ({ data }): Promise<Turn> => {
+  .handler(async ({ data }): Promise<Turn & { remember: string[] }> => {
     const key = process.env["LOVABLE_API_KEY"];
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
 
@@ -148,7 +155,7 @@ export const askAgent = createServerFn({ method: "POST" })
     }
 
     if (!out.trim()) throw new Error("Empty response from the model");
-    const parsed = JSON.parse(out) as Turn;
+    const parsed = JSON.parse(out) as Turn & { remember?: string[] | null };
 
     const allowedFacts = new Set(CRITICAL_FACTS.map((f) => f.id));
     const factId = parsed.factId && allowedFacts.has(parsed.factId) ? parsed.factId : null;
@@ -169,6 +176,9 @@ export const askAgent = createServerFn({ method: "POST" })
       escalate: Boolean(parsed.escalate),
       factId,
       find,
-      provenance: `Lovable AI conversational agent, grounded in live NWS alerts, your location (${data.placeLabel}), and seeded verified facts. Emergency numbers come only from the verified facts table.`,
+      remember: Array.isArray(parsed.remember)
+        ? parsed.remember.filter((r) => typeof r === "string" && r.trim()).slice(0, 4)
+        : [],
+      provenance: `Lovable AI conversational agent, grounded in live NWS alerts, your location (${data.placeLabel}), ${data.memory.length} remembered detail${data.memory.length === 1 ? "" : "s"} about you, and seeded verified facts. Emergency numbers come only from the verified facts table.`,
     };
   });
