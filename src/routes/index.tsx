@@ -161,6 +161,7 @@ function Concierge() {
               memory: memoryRef.current,
               placeLabel: locLabel,
               localTime: new Date().toLocaleString([], { weekday: "long", hour: "numeric", minute: "2-digit" }),
+              demoMode,
               alert: activeAlert
                 ? {
                     event: activeAlert.event,
