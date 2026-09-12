@@ -72,6 +72,8 @@ function Concierge() {
   const [demoMode, setDemoMode] = useState(false);
   const [demoAlert, setDemoAlert] = useState<LiveAlert | null>(null);
   const [demoOpen, setDemoOpen] = useState(false);
+  const [simCall, setSimCall] = useState<SimCall | null>(null);
+  const [simStep, setSimStep] = useState(0);
   const [tapCount, setTapCount] = useState(0);
 
   const [messages, setMessages] = useState<Msg[]>([]);
