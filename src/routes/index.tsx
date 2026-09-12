@@ -341,6 +341,33 @@ function Concierge() {
           </section>
         )}
 
+        {/* Simulated service connection */}
+        {turn?.connect && (
+          <section className="rounded-2xl border-2 border-demo bg-demo/10 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="relative flex size-2.5">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-demo opacity-75" />
+                  <span className="relative inline-flex size-2.5 rounded-full bg-demo" />
+                </span>
+                <h2 className="font-display text-base font-bold">{turn.connect.service}</h2>
+              </div>
+              <span className="rounded-full bg-demo px-2 py-0.5 text-[10px] font-bold uppercase text-demo-foreground">
+                Simulated
+              </span>
+            </div>
+            {turn.connect.status && (
+              <p className="mt-1 text-xs font-medium text-muted-foreground">{turn.connect.status}</p>
+            )}
+            {turn.connect.line && (
+              <p className="mt-3 rounded-xl bg-card p-3 text-sm italic">“{turn.connect.line}”</p>
+            )}
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Demo connection — no real service was contacted. Place the real call yourself.
+            </p>
+          </section>
+        )}
+
         {/* Steps */}
         {turn && turn.steps.length > 0 && (
           <section className="rounded-2xl border border-border bg-card p-4">
