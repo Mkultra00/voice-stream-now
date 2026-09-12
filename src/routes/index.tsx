@@ -268,6 +268,24 @@ function Concierge() {
 
   const escalationFact = turn?.factId ? CRITICAL_FACTS.find((f) => f.id === turn.factId) : null;
 
+  const startSimCall = (factId: string, number: string) => {
+    const call = buildSimCall(factId, number, {
+      placeLabel: locLabel,
+      localTime: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+      alertEvent: activeAlert?.event ?? null,
+    });
+    setSimCall(call);
+    setSimStep(0);
+    void speak(call.lines[0].text);
+  };
+
+  const advanceSimCall = () => {
+    if (!simCall) return;
+    const next = Math.min(simStep + 1, simCall.lines.length - 1);
+    setSimStep(next);
+    void speak(simCall.lines[next].text);
+  };
+
   return (
     <div className="min-h-screen bg-background pb-32 font-sans text-foreground">
       {/* Alert banner */}
