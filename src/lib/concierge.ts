@@ -138,16 +138,21 @@ export function respond(text: string, activeAlert: LiveAlert | null, ctx: Contex
   // 3. Everyday valet: nearby places from OpenStreetMap.
   for (const intent of PLACE_INTENTS) {
     if (intent.patterns.test(clean)) {
-      const openNow = /(open|right now|after midnight|24 ?hour|late)/i.test(clean);
+      const openNow = late || /(open|right now|after midnight|24 ?hour|late)/i.test(clean);
       return {
-        headline: intent.label + " near you",
-        spoken: `Looking for the closest ${intent.label.toLowerCase()}${openNow ? " that should be open" : ""}. Here's what's nearest.`,
-        steps: [],
+        headline: `${intent.label} near ${here}`,
+        spoken:
+          `It's ${clockPhrase(ctx.hour)} — ${timePhrase(ctx.hour)} near ${here}. ` +
+          `Here are the closest ${intent.label.toLowerCase()}${openNow ? ", prioritizing ones that should be open at this hour" : ""}, ranked by walking time from where you're standing.`,
+        steps: [
+          `Context: ${clockPhrase(ctx.hour)}, near ${here}.`,
+          ...(late ? ["It's late — some smaller places may be closed; 24-hour options are listed first."] : []),
+        ],
         posture: "calm",
         escalate: false,
         factId: null,
         find: { kind: intent.kind, label: intent.label, radius: intent.radius },
-        provenance: "OpenStreetMap via Overpass, ranked by walking distance.",
+        provenance: `OpenStreetMap via Overpass, ranked by walking distance from ${here}.`,
       };
     }
   }
