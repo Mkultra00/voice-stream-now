@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { CRITICAL_FACTS, WEATHER_PLAYBOOK } from "./critical-facts";
 import type { Turn } from "./concierge";
+import { needsResearch, webResearch } from "./research.server";
 
 // Conversational agent layer. Deterministic red flags are handled BEFORE this
 // ever runs (see concierge.ts). This call only shapes the tone, the follow-up
