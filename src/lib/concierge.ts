@@ -88,6 +88,17 @@ export function redFlagTurn(text: string, ctx: Context): Turn | null {
       };
     }
   }
+  return null;
+}
+
+/** Rule-based fallback, used only when the conversational agent is unavailable. */
+export function respond(text: string, activeAlert: LiveAlert | null, ctx: Context): Turn {
+  const clean = text.trim();
+  const here = where(ctx);
+  const late = ctx.hour < 6 || ctx.hour >= 23;
+
+  const flagged = redFlagTurn(text, ctx);
+  if (flagged) return flagged;
 
   // 2. Active warning + a "what do I do" / weather question -> seeded playbook.
   if (activeAlert && (HELP_NOW.test(clean) || WEATHER_TOPIC.test(clean))) {
