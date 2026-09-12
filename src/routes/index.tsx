@@ -721,6 +721,17 @@ function Concierge() {
                 </button>
               ))}
             </div>
+            <p className="mt-3 text-xs text-muted-foreground">Memory</p>
+            <button
+              onClick={() => {
+                forgetAll();
+                setMemory([]);
+                setMessages([]);
+              }}
+              className="mt-1 rounded-lg border border-border px-3 py-2 text-xs"
+            >
+              Clear memory
+            </button>
           </section>
         )}
       </main>
