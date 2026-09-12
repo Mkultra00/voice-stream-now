@@ -17,7 +17,8 @@ import {
 import { getAlerts, type LiveAlert } from "@/lib/alerts.functions";
 import { findPlaces, type Place } from "@/lib/places.functions";
 import { describeLocation } from "@/lib/geo.functions";
-import { respond, postureFromAlerts, type Turn } from "@/lib/concierge";
+import { respond, redFlagTurn, postureFromAlerts, type Turn } from "@/lib/concierge";
+import { askAgent } from "@/lib/agent.functions";
 import { CRITICAL_FACTS, FACTS_VERIFIED_ON, POSTURE_LABEL, type Posture } from "@/lib/critical-facts";
 import { buildDemoAlert, DEMO_ALERT_LABELS, type DemoAlertKey } from "@/lib/demo-alerts";
 import { speak, startRecording, stopSpeaking, transcribe, type Recorder } from "@/lib/recorder";
@@ -60,6 +61,7 @@ function Concierge() {
   const placesFn = useServerFn(findPlaces);
   const geoFn = useServerFn(describeLocation);
   const directionsFn = useServerFn(getWalkingDirections);
+  const agentFn = useServerFn(askAgent);
 
   const [loc, setLoc] = useState(FALLBACK);
   const [locLabel, setLocLabel] = useState("locating…");
@@ -83,6 +85,10 @@ function Concierge() {
   const [loadingDirections, setLoadingDirections] = useState<string | null>(null);
   const [doneSteps, setDoneSteps] = useState<number[]>([]);
   const recorderRef = useRef<Recorder | null>(null);
+  const messagesRef = useRef<Msg[]>([]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   const activeAlert = demoAlert ?? liveAlerts[0] ?? null;
   const posture: Posture = turn?.posture ?? (demoAlert ? "shelter" : postureFromAlerts(liveAlerts));
@@ -120,9 +126,35 @@ function Concierge() {
       if (!text.trim()) return;
       setError(null);
       setDoneSteps([]);
+      const history = messagesRef.current.slice(-10).map((m) => ({ role: m.role, text: m.text }));
       setMessages((m) => [...m, { id: Date.now(), role: "you", text }]);
       setThinking(true);
-      const result = respond(text, activeAlert, { placeLabel: locLabel, hour: new Date().getHours() });
+      const ctx = { placeLabel: locLabel, hour: new Date().getHours() };
+
+      // Deterministic red flags always win — no model involved.
+      let result = redFlagTurn(text, ctx);
+      if (!result) {
+        try {
+          result = await agentFn({
+            data: {
+              text,
+              history,
+              placeLabel: locLabel,
+              localTime: new Date().toLocaleString([], { weekday: "long", hour: "numeric", minute: "2-digit" }),
+              alert: activeAlert
+                ? {
+                    event: activeAlert.event,
+                    headline: activeAlert.headline ?? "",
+                    expires: activeAlert.expires ?? null,
+                    areaDesc: activeAlert.areaDesc ?? "",
+                  }
+                : null,
+            },
+          });
+        } catch {
+          result = respond(text, activeAlert, ctx);
+        }
+      }
       setTurn(result);
       setMessages((m) => [...m, { id: Date.now() + 1, role: "concierge", text: result.spoken }]);
       void speak(result.spoken).catch((e: Error) => setError(e.message));
@@ -143,7 +175,7 @@ function Concierge() {
       }
       setThinking(false);
     },
-    [activeAlert, loc, locLabel, placesFn],
+    [activeAlert, agentFn, loc, locLabel, placesFn],
   );
 
   const startTalk = useCallback(async () => {

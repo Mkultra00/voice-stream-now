@@ -69,12 +69,10 @@ function where(ctx: Context): string {
   return ctx.placeLabel && ctx.placeLabel !== "locating…" ? ctx.placeLabel : "your location";
 }
 
-export function respond(text: string, activeAlert: LiveAlert | null, ctx: Context): Turn {
+/** Deterministic red flags — these always bypass the language model. */
+export function redFlagTurn(text: string, ctx: Context): Turn | null {
   const clean = text.trim();
   const here = where(ctx);
-  const late = ctx.hour < 6 || ctx.hour >= 23;
-
-  // 1. Deterministic red flags run before anything else.
   for (const flag of RED_FLAGS) {
     if (flag.patterns.test(clean)) {
       const fact = CRITICAL_FACTS.find((f) => f.id === flag.factId)!;
@@ -90,6 +88,17 @@ export function respond(text: string, activeAlert: LiveAlert | null, ctx: Contex
       };
     }
   }
+  return null;
+}
+
+/** Rule-based fallback, used only when the conversational agent is unavailable. */
+export function respond(text: string, activeAlert: LiveAlert | null, ctx: Context): Turn {
+  const clean = text.trim();
+  const here = where(ctx);
+  const late = ctx.hour < 6 || ctx.hour >= 23;
+
+  const flagged = redFlagTurn(text, ctx);
+  if (flagged) return flagged;
 
   // 2. Active warning + a "what do I do" / weather question -> seeded playbook.
   if (activeAlert && (HELP_NOW.test(clean) || WEATHER_TOPIC.test(clean))) {
