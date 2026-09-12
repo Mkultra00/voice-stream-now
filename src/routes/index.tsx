@@ -356,12 +356,28 @@ function Concierge() {
                   <button
                     onClick={() => {
                       const url = `https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route=${loc.lat},${loc.lon};${p.lat},${p.lon}`;
-                      const opened = window.open(url, "_blank", "noopener,noreferrer");
-                      if (!opened) {
-                        void navigator.clipboard.writeText(url).then(() => {
-                          toast.success("Directions link copied — paste it into your browser.");
-                        });
+                      const fallback = () => {
+                        const showLink = () =>
+                          toast.info("Copy this directions link into your browser:", {
+                            description: url,
+                            duration: 15000,
+                          });
+                        try {
+                          void navigator.clipboard
+                            .writeText(url)
+                            .then(() => toast.success("Directions link copied — paste it into your browser."))
+                            .catch(showLink);
+                        } catch {
+                          showLink();
+                        }
+                      };
+                      let opened: Window | null = null;
+                      try {
+                        opened = window.open(url, "_blank", "noopener,noreferrer");
+                      } catch {
+                        opened = null;
                       }
+                      if (!opened) fallback();
                     }}
                     className="shrink-0 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-accent-foreground"
                   >
