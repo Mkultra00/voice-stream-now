@@ -1,24 +1,537 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  MapPin,
+  Mic,
+  Phone,
+  RefreshCw,
+  ShieldAlert,
+  Volume2,
+} from "lucide-react";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
+import { getAlerts, type LiveAlert } from "@/lib/alerts.functions";
+import { findPlaces, type Place } from "@/lib/places.functions";
+import { describeLocation } from "@/lib/geo.functions";
+import { respond, postureFromAlerts, type Turn } from "@/lib/concierge";
+import { CRITICAL_FACTS, FACTS_VERIFIED_ON, POSTURE_LABEL, type Posture } from "@/lib/critical-facts";
+import { buildDemoAlert, DEMO_ALERT_LABELS, type DemoAlertKey } from "@/lib/demo-alerts";
+import { speak, startRecording, stopSpeaking, transcribe, type Recorder } from "@/lib/recorder";
+
+const MapView = lazy(() => import("@/components/MapView"));
+
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "Emergency Concierge — NYC" },
+      {
+        name: "description",
+        content:
+          "Talk to a voice concierge that reads live National Weather Service alerts, maps the nearest help from OpenStreetMap, and only ever quotes verified emergency numbers.",
+      },
+      { property: "og:title", content: "Emergency Concierge — NYC" },
+      {
+        property: "og:description",
+        content:
+          "Voice-first help for New York City: live weather warnings, nearby open places, verified emergency facts.",
+      },
+    ],
+  }),
+  component: Concierge,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
+const FALLBACK = { lat: 40.758, lon: -73.9855 }; // Times Square
+const PRESETS = [
+  { name: "Times Square", lat: 40.758, lon: -73.9855 },
+  { name: "Lower Manhattan", lat: 40.7075, lon: -74.0113 },
+  { name: "Williamsburg", lat: 40.7143, lon: -73.9613 },
+];
+
+type Msg = { id: number; role: "you" | "concierge"; text: string };
+
+function Concierge() {
+  const alertsFn = useServerFn(getAlerts);
+  const placesFn = useServerFn(findPlaces);
+  const geoFn = useServerFn(describeLocation);
+
+  const [loc, setLoc] = useState(FALLBACK);
+  const [locLabel, setLocLabel] = useState("locating…");
+  const [liveAlerts, setLiveAlerts] = useState<LiveAlert[]>([]);
+  const [feedOk, setFeedOk] = useState(true);
+  const [checkedAt, setCheckedAt] = useState<string | null>(null);
+  const [demoMode, setDemoMode] = useState(false);
+  const [demoAlert, setDemoAlert] = useState<LiveAlert | null>(null);
+  const [demoOpen, setDemoOpen] = useState(false);
+  const [tapCount, setTapCount] = useState(0);
+
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [turn, setTurn] = useState<Turn | null>(null);
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [placesSource, setPlacesSource] = useState<string | null>(null);
+  const [thinking, setThinking] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [doneSteps, setDoneSteps] = useState<number[]>([]);
+  const recorderRef = useRef<Recorder | null>(null);
+
+  const activeAlert = demoAlert ?? liveAlerts[0] ?? null;
+  const posture: Posture = turn?.posture ?? (demoAlert ? "shelter" : postureFromAlerts(liveAlerts));
+
+  // Location
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (p) => setLoc({ lat: p.coords.latitude, lon: p.coords.longitude }),
+      () => setLocLabel("Times Square (default)"),
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  }, []);
+
+  useEffect(() => {
+    void geoFn({ data: loc }).then((r) => setLocLabel(r.label));
+  }, [loc, geoFn]);
+
+  // Live NWS alerts, refreshed every 60s
+  const refreshAlerts = useCallback(async () => {
+    const r = await alertsFn({ data: {} });
+    setLiveAlerts(r.alerts);
+    setFeedOk(r.feedOk);
+    setCheckedAt(r.checkedAt);
+  }, [alertsFn]);
+
+  useEffect(() => {
+    void refreshAlerts();
+    const t = setInterval(() => void refreshAlerts(), 60_000);
+    return () => clearInterval(t);
+  }, [refreshAlerts]);
+
+  const handleText = useCallback(
+    async (text: string) => {
+      if (!text.trim()) return;
+      setError(null);
+      setDoneSteps([]);
+      setMessages((m) => [...m, { id: Date.now(), role: "you", text }]);
+      setThinking(true);
+      const result = respond(text, activeAlert);
+      setTurn(result);
+      setMessages((m) => [...m, { id: Date.now() + 1, role: "concierge", text: result.spoken }]);
+      void speak(result.spoken).catch((e: Error) => setError(e.message));
+
+      if (result.find) {
+        setPlaces([]);
+        try {
+          const r = await placesFn({
+            data: { lat: loc.lat, lon: loc.lon, kind: result.find.kind, radius: result.find.radius, limit: 4 },
+          });
+          setPlaces(r.places);
+          setPlacesSource(`${r.source}, checked ${timeOf(r.checkedAt)}`);
+        } catch {
+          setError("Couldn't reach the map data just now.");
+        }
+      } else {
+        setPlaces([]);
+      }
+      setThinking(false);
+    },
+    [activeAlert, loc, placesFn],
+  );
+
+  const startTalk = useCallback(async () => {
+    stopSpeaking();
+    setError(null);
+    try {
+      recorderRef.current = await startRecording();
+      setListening(true);
+    } catch {
+      setError("Microphone access is needed to talk. Enable it and try again.");
+    }
+  }, []);
+
+  const endTalk = useCallback(async () => {
+    const rec = recorderRef.current;
+    recorderRef.current = null;
+    setListening(false);
+    if (!rec) return;
+    const blob = await rec.stop();
+    if (blob.size < 4000) {
+      setError("That was too short — hold the button while you speak.");
+      return;
+    }
+    setThinking(true);
+    try {
+      const text = await transcribe(blob);
+      setThinking(false);
+      if (!text) {
+        setError("I didn't catch that — try again.");
+        return;
+      }
+      await handleText(text);
+    } catch (e) {
+      setThinking(false);
+      setError(e instanceof Error ? e.message : "Voice failed.");
+    }
+  }, [handleText]);
+
+  const injectDemo = (key: DemoAlertKey) => {
+    const a = buildDemoAlert(key, loc.lat, loc.lon);
+    setDemoAlert(a);
+    setDemoMode(true);
+    void handleText("What should I do, I'm on the street");
+  };
+
+  const versionTap = () => {
+    const n = tapCount + 1;
+    setTapCount(n);
+    if (n >= 3) {
+      setDemoOpen(true);
+      setTapCount(0);
+    }
+  };
+
+  const escalationFact = turn?.factId ? CRITICAL_FACTS.find((f) => f.id === turn.factId) : null;
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
+    <div className="min-h-screen bg-background pb-32 font-sans text-foreground">
+      {/* Alert banner */}
+      {activeAlert && (
+        <div className="flex items-start gap-3 border-b border-destructive/40 bg-destructive/15 px-4 py-3">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-destructive" />
+          <div className="text-sm">
+            <p className="font-display font-bold uppercase tracking-wide text-destructive">
+              {activeAlert.event} · {activeAlert.areaDesc}
+              {activeAlert.source === "DEMO" && " (DEMO)"}
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              {activeAlert.headline}
+              {activeAlert.expires && ` — until ${timeOf(activeAlert.expires)}`}
+            </p>
+          </div>
+        </div>
+      )}
+
+      <header className="px-4 pt-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="font-display text-2xl font-bold tracking-tight">Emergency Concierge</h1>
+            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <MapPin className="size-3.5" /> You are near {locLabel}
+            </p>
+          </div>
+          <PostureBadge posture={posture} />
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className="rounded-full border border-border bg-card px-2.5 py-1 text-muted-foreground">
+            {feedOk
+              ? liveAlerts.length === 0
+                ? "NWS: no active alerts"
+                : `NWS: ${liveAlerts.length} active`
+              : "NWS feed unavailable"}
+            {checkedAt && ` · ${timeOf(checkedAt)}`}
+          </span>
+          {demoMode && (
+            <span className="rounded-full bg-demo px-2.5 py-1 font-bold text-demo-foreground">
+              DEMO MODE ON
+            </span>
+          )}
+          <span className="rounded-full border border-border px-2.5 py-1 text-muted-foreground">
+            Demo — not an emergency service
+          </span>
+        </div>
+      </header>
+
+      <main className="space-y-4 px-4 pt-5">
+        {/* Escalation card */}
+        {turn?.escalate && escalationFact && (
+          <section className="rounded-2xl border-2 border-destructive bg-destructive/15 p-4">
+            <div className="flex items-center gap-2 text-destructive">
+              <ShieldAlert className="size-5" />
+              <h2 className="font-display text-lg font-bold">{turn.headline}</h2>
+            </div>
+            <a
+              href={demoMode ? undefined : `tel:${escalationFact.number.replace(/\D/g, "")}`}
+              onClick={(e) => demoMode && e.preventDefault()}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-destructive py-4 font-display text-xl font-bold text-destructive-foreground"
+            >
+              <Phone className="size-5" /> Call {escalationFact.number}
+              {demoMode && <span className="text-sm font-medium">(demo-safe)</span>}
+            </a>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {escalationFact.label} · from seeded critical facts, verified {FACTS_VERIFIED_ON} ·
+              source {escalationFact.source}
+            </p>
+          </section>
+        )}
+
+        {/* Steps */}
+        {turn && turn.steps.length > 0 && (
+          <section className="rounded-2xl border border-border bg-card p-4">
+            <h2 className="font-display text-base font-bold">
+              {turn.escalate ? "Do this now" : turn.headline}
+            </h2>
+            <ol className="mt-3 space-y-2">
+              {turn.steps.map((s, i) => (
+                <li key={s} className="flex items-start gap-3">
+                  <button
+                    onClick={() => setDoneSteps((d) => (d.includes(i) ? d : [...d, i]))}
+                    className="mt-0.5 shrink-0"
+                    aria-label="Mark step done"
+                  >
+                    <CheckCircle2
+                      className={`size-5 ${doneSteps.includes(i) ? "text-safe" : "text-muted-foreground/50"}`}
+                    />
+                  </button>
+                  <span
+                    className={`text-sm ${doneSteps.includes(i) ? "text-muted-foreground line-through" : ""}`}
+                  >
+                    {s}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => void speak(turn.spoken)}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium"
+              >
+                <Volume2 className="size-4" /> Repeat
+              </button>
+              <button
+                onClick={() => void handleText("What should I do, I'm on the street")}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium"
+              >
+                <RefreshCw className="size-4" /> Situation changed
+              </button>
+              <button
+                onClick={() => {
+                  setTurn(null);
+                  setPlaces([]);
+                }}
+                className="rounded-lg border border-border px-3 py-2 text-xs font-medium"
+              >
+                I&apos;m OK
+              </button>
+            </div>
+          </section>
+        )}
+
+        {/* Map */}
+        <section className="overflow-hidden rounded-2xl border border-border">
+          <div className="h-64 w-full">
+            <Suspense fallback={<div className="h-full w-full animate-pulse bg-card" />}>
+              <ClientOnly>
+                <MapView
+                  lat={loc.lat}
+                  lon={loc.lon}
+                  places={places}
+                  polygon={activeAlert?.polygon ?? null}
+                />
+              </ClientOnly>
+            </Suspense>
+          </div>
+        </section>
+
+        {/* Places */}
+        {places.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="font-display text-base font-bold">{turn?.find?.label}</h2>
+            {places.map((p) => (
+              <article key={p.id} className="rounded-xl border border-border bg-card p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-medium">{p.name}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {p.walkMin} min walk · {p.distanceM} m
+                      {p.address && ` · ${p.address}`}
+                      {p.openNow === true && " · open 24/7"}
+                      {p.openingHours && p.openNow !== true && ` · ${p.openingHours}`}
+                    </p>
+                  </div>
+                  <a
+                    href={`https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route=${loc.lat},${loc.lon};${p.lat},${p.lon}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-accent-foreground"
+                  >
+                    Directions
+                  </a>
+                </div>
+              </article>
+            ))}
+            {placesSource && <p className="text-xs text-muted-foreground">Source: {placesSource}</p>}
+          </section>
+        )}
+
+        {/* Transcript */}
+        {messages.length > 0 && (
+          <section className="space-y-2 rounded-2xl border border-border bg-card p-4">
+            <h2 className="font-display text-sm font-bold uppercase tracking-wide text-muted-foreground">
+              Transcript
+            </h2>
+            {messages.slice(-6).map((m) => (
+              <p key={m.id} className="text-sm">
+                <span className="font-display font-bold text-accent">
+                  {m.role === "you" ? "You" : "Concierge"}:{" "}
+                </span>
+                {m.text}
+              </p>
+            ))}
+          </section>
+        )}
+
+        {/* Evidence */}
+        <section className="rounded-2xl border border-border bg-card p-4">
+          <h2 className="font-display text-sm font-bold uppercase tracking-wide text-muted-foreground">
+            Where this came from
+          </h2>
+          <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+            <li>Alerts: National Weather Service api.weather.gov{checkedAt && ` · ${timeOf(checkedAt)}`}</li>
+            <li>Places & map: OpenStreetMap / Overpass API</li>
+            <li>
+              Emergency numbers: seeded critical-facts table, verified {FACTS_VERIFIED_ON} — never
+              generated
+            </li>
+            {turn && <li>This answer: {turn.provenance}</li>}
+          </ul>
+          <button
+            onClick={versionTap}
+            className="mt-3 text-[10px] text-muted-foreground/60"
+            aria-label="Version"
+          >
+            v2.0 POC
+          </button>
+        </section>
+
+        {error && (
+          <p className="rounded-xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
+          </p>
+        )}
+
+        {/* Demo panel */}
+        {demoOpen && (
+          <section className="rounded-2xl border-2 border-demo bg-card p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display font-bold text-demo">Demo controls</h2>
+              <button onClick={() => setDemoOpen(false)} className="text-xs text-muted-foreground">
+                Close
+              </button>
+            </div>
+            <label className="mt-3 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={demoMode}
+                onChange={(e) => {
+                  setDemoMode(e.target.checked);
+                  if (!e.target.checked) setDemoAlert(null);
+                }}
+              />
+              Demo mode (blocks real dialing)
+            </label>
+            <p className="mt-3 text-xs text-muted-foreground">Inject alert</p>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {(Object.keys(DEMO_ALERT_LABELS) as DemoAlertKey[]).map((k) => (
+                <button
+                  key={k}
+                  onClick={() => injectDemo(k)}
+                  className="rounded-lg bg-demo px-3 py-2 text-xs font-bold text-demo-foreground"
+                >
+                  {DEMO_ALERT_LABELS[k]}
+                </button>
+              ))}
+              <button
+                onClick={() => setDemoAlert(null)}
+                className="rounded-lg border border-border px-3 py-2 text-xs"
+              >
+                Clear
+              </button>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">Location override</p>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.name}
+                  onClick={() => setLoc({ lat: p.lat, lon: p.lon })}
+                  className="rounded-lg border border-border px-3 py-2 text-xs"
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
+
+      {/* Talk bar */}
+      <div className="fixed inset-x-0 bottom-0 border-t border-border bg-card/95 px-4 py-3 backdrop-blur">
+        <div className="flex items-center gap-2">
+          <button
+            onPointerDown={() => void startTalk()}
+            onPointerUp={() => void endTalk()}
+            onPointerLeave={() => listening && void endTalk()}
+            className={`flex h-14 flex-1 items-center justify-center gap-2 rounded-xl font-display text-lg font-bold transition-colors ${
+              listening
+                ? "bg-accent text-accent-foreground"
+                : "bg-primary text-primary-foreground"
+            }`}
+          >
+            {thinking ? (
+              <Loader2 className="size-5 animate-spin" />
+            ) : (
+              <Mic className="size-5" />
+            )}
+            {listening ? "Listening… release to send" : thinking ? "Working…" : "Hold to talk"}
+          </button>
+        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleText(typed);
+            setTyped("");
+          }}
+          className="mt-2 flex gap-2"
+        >
+          <input
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder="…or type what you need"
+            className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring"
+          />
+          <button className="rounded-lg border border-border px-3 py-2 text-sm font-medium">
+            Send
+          </button>
+        </form>
+      </div>
     </div>
   );
+}
+
+function PostureBadge({ posture }: { posture: Posture }) {
+  const tone: Record<Posture, string> = {
+    calm: "bg-safe text-safe-foreground",
+    clarify: "bg-secondary text-secondary-foreground",
+    shelter: "bg-accent text-accent-foreground",
+    move: "bg-accent text-accent-foreground",
+    "seek-help": "bg-destructive text-destructive-foreground",
+  };
+  return (
+    <span className={`rounded-lg px-3 py-1.5 font-display text-xs font-bold tracking-wide ${tone[posture]}`}>
+      {POSTURE_LABEL[posture]}
+    </span>
+  );
+}
+
+function ClientOnly({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return <div className="h-full w-full bg-card" />;
+  return <>{children}</>;
+}
+
+function timeOf(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
