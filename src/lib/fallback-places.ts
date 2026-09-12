@@ -68,6 +68,9 @@ function haversine(aLat: number, aLon: number, bLat: number, bLon: number): numb
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
+// Seeds are NYC-only: never present them to someone standing far outside the city.
+const MAX_FALLBACK_M = 25_000;
+
 export function fallbackPlaces(kind: PlaceKind, lat: number, lon: number, limit: number): Place[] {
   return SEEDS.filter((s) => s.kind === kind)
     .map((s, i): Place => {
