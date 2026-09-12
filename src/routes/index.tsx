@@ -24,6 +24,7 @@ import { buildDemoAlert, DEMO_ALERT_LABELS, type DemoAlertKey } from "@/lib/demo
 import { speak, startRecording, stopSpeaking, transcribe, type Recorder } from "@/lib/recorder";
 import { formatDistance, formatWalk } from "@/lib/walk";
 import { getWalkingDirections, type WalkingDirections } from "@/lib/directions.functions";
+import { forgetAll, loadMemory, loadMessages, mergeMemory, saveMemory, saveMessages } from "@/lib/memory";
 
 const MapView = lazy(() => import("@/components/MapView"));
 
