@@ -30,6 +30,17 @@ const PLACE_INTENTS: { patterns: RegExp; kind: PlaceKind; label: string; radius:
 ];
 
 const HELP_NOW = /(what should i do|what do i do|help me|i'?m on the street|what now|next step)/i;
+const WEATHER_TOPIC = /(flood|storm|hurricane|tornado|blizzard|thunderstorm|heat wave|heat|warning|weather|rain|wind|snow)/i;
+
+function expiryLine(alert: LiveAlert): string | null {
+  if (!alert.expires) return null;
+  const ms = new Date(alert.expires).getTime() - Date.now();
+  if (ms <= 0) return null;
+  const mins = Math.round(ms / 60_000);
+  const clock = new Date(alert.expires).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const span = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins} min`;
+  return `Timing: this ${alert.event.toLowerCase()} is in effect for the next ${span} (until ${clock}).`;
+}
 
 export function respond(text: string, activeAlert: LiveAlert | null): Turn {
   const clean = text.trim();
