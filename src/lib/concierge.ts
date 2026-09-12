@@ -81,7 +81,7 @@ export function respond(text: string, activeAlert: LiveAlert | null, ctx: Contex
       return {
         headline: flag.headline,
         spoken: flag.spoken,
-        steps: flag.steps,
+        steps: [...flag.steps, `Your location: ${here} — give this to the 911 operator.`],
         posture: flag.posture,
         escalate: true,
         factId: flag.factId,
