@@ -12,7 +12,7 @@ type OsrmStep = {
   distance: number;
   duration: number;
   name?: string;
-  maneuver?: { type?: string; modifier?: string };
+  maneuver?: { type?: string; modifier?: string; location?: [number, number] };
 };
 
 type OsrmResponse = {
@@ -32,16 +32,28 @@ export type WalkingDirections = {
   steps: Array<{ instruction: string; distanceM: number }>;
 };
 
-function stepInstruction(step: OsrmStep, nextName?: string) {
+async function streetNameAt(lon: number, lat: number): Promise<string> {
+  try {
+    const url = `https://photon.komoot.io/reverse?lon=${lon}&lat=${lat}`;
+    const response = await fetch(url, {
+      headers: { "User-Agent": "EmergencyConcierge/1.0" },
+      signal: AbortSignal.timeout(4_000),
+    });
+    if (!response.ok) return "";
+    const payload = (await response.json()) as { features?: Array<{ properties?: { street?: string; name?: string } }> };
+    return payload.features?.[0]?.properties?.street ?? payload.features?.[0]?.properties?.name ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function stepInstruction(step: OsrmStep, streetName: string) {
   const type = step.maneuver?.type ?? "continue";
   const modifier = step.maneuver?.modifier;
   const turnDir = modifier ? modifier.replace(/\b\w/g, (c) => c.toUpperCase()) : "ahead";
-  // In OSRM each step's name is the street you are on *after* the maneuver.
-  // Some segments are unnamed, so fall back to the next named street ahead.
-  const streetName = step.name || nextName || "";
   const street = streetName ? ` onto ${streetName}` : "";
 
-  if (type === "depart") return `Start on ${step.name || streetName || "the street"}${modifier ? `, heading ${modifier}` : ""}`;
+  if (type === "depart") return `Start on ${streetName || "the street"}${modifier ? `, heading ${modifier}` : ""}`;
   if (type === "arrive") return "Arrive at your destination";
   if (type === "roundabout" || type === "rotary") return `Enter the roundabout${street}`;
   if (type === "new name") return streetName ? `Continue onto ${streetName}` : "Continue straight";
