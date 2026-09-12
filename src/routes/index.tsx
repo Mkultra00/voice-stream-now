@@ -21,6 +21,7 @@ import { respond, postureFromAlerts, type Turn } from "@/lib/concierge";
 import { CRITICAL_FACTS, FACTS_VERIFIED_ON, POSTURE_LABEL, type Posture } from "@/lib/critical-facts";
 import { buildDemoAlert, DEMO_ALERT_LABELS, type DemoAlertKey } from "@/lib/demo-alerts";
 import { speak, startRecording, stopSpeaking, transcribe, type Recorder } from "@/lib/recorder";
+import { formatDistance, formatWalk } from "@/lib/walk";
 
 const MapView = lazy(() => import("@/components/MapView"));
 
