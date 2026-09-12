@@ -1,29 +1,19 @@
-# Welcome to your Lovable project
+# Emergency Concierge — a voice-first AI agent that tells you what to do, right where you're standing
 
-This project was built with [Lovable](https://lovable.dev).
+Emergencies don't happen at a desk. They happen on a sidewalk at 2 a.m., in a subway entrance as the water rises, in a hotel lobby when your chest starts to hurt. Emergency Concierge is a mobile-web agent for New York City that lives in that moment: you tap Get Help, hold the mic, say what's happening, and it answers out loud with one calm step at a time, grounded in your live location, the current time, active National Weather Service alerts, and what is actually open around you. On an ordinary day it's a valet (nearest open restroom, 24-hour pharmacy, walking route); on a bad day it's the guide you didn't have.
 
-## Build with Lovable
+## Why an agent in this environment beats a chatbot
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+A standalone chatbot answers "where's the nearest pharmacy" the same way at noon on Tuesday and at 2 a.m. on a holiday. Our agent doesn't. It runs inside the phone's context: GPS position, wall clock, sunset, the NWS alert polygon you're standing in, and live open-now data from Google Places and NYC Open Data. That context drives a posture state (shelter, move, seek help, clarify) that shapes every response. Report chest pain and the agent skips the model entirely: a deterministic red-flag rule fires in under 300 ms, a verified 911 card appears, and the spoken instruction plays before any research runs. Say you're being followed and it flips to MOVE, routes you to the nearest open, staffed location along main streets, and offers one-tap location sharing. A chatbot would produce a paragraph; the agent produces the next action, reads it aloud, and waits for Done, Repeat, or Situation changed.
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+## The innovation is grounded guidance
 
-## Development
+The LLM is not the source of truth. Four seeded playbooks (severe weather, medical, personal safety, everyday valet) hold the critical instructions; the agent selects and personalizes them rather than inventing advice. Emergency numbers and addresses may only come from a verified critical-facts table or live tool results, and the server strips anything the model hallucinates. Every card shows its source and when it was checked. The app logs "dialer opened," never "help is on the way." This is what makes an AI agent trustworthy enough to use when it counts.
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## Technical execution
 
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
-```
+The frontend is a mobile-first React + TypeScript progressive web app built and hosted on Lovable, with an installable shell, push-to-talk recording via the MediaRecorder API, a live transcript, and a map layer (Google Maps JavaScript API) rendering the user pin, NWS alert polygons, place markers, and walking routes. The backend is Supabase: Postgres with row-level security for anonymous sessions (no sign-up required), tables for incidents, messages, playbooks, critical facts, place and alert caches, and demo state, plus four Deno edge functions. `concierge` is the agent: a single tool-using LLM call (Claude Sonnet via server-side key) with tools `get_alerts`, `find_places`, `get_route`, `get_playbook_step`, and `list_critical_facts`, red-flag rules evaluated before the model, and Zod-validated card output rendered from an allowlisted component set so no model-generated HTML ever reaches the screen. `alerts` polls `api.weather.gov` for the five NYC borough zones with a 60-second cache. `places` merges Google Places API (New) nearby search with open-now filtering and seeded NYC Open Data (public restrooms, health facilities, NYPD precincts). `voice` proxies ElevenLabs speech-to-text and text-to-speech so keys stay server-side, with browser SpeechSynthesis as fallback. A Demo Mode injects clearly labeled fake NWS alerts, overrides location, and swaps `tel:` links for a safe dialer so the full flow can be shown live without a real emergency.
 
-## Built with
+## Value and experience
 
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
+No account, no questionnaire: one tap and one held button to talk. Large touch targets, high contrast, interruptible audio (tap to stop), and a text fallback if the mic is denied. The user sees one action at a time, a posture badge, and an evidence panel that explains where every fact came from. Judges can open the link on their own phone, ask for the nearest restroom, inject a flash-flood warning, report chest pain, and watch the agent change behavior with the situation, which is exactly what a person in trouble needs and exactly what a chat window can't do.
