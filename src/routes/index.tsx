@@ -200,7 +200,7 @@ function Concierge() {
       }
       setThinking(false);
     },
-    [activeAlert, agentFn, loc, locLabel, placesFn],
+    [activeAlert, agentFn, demoMode, loc, locLabel, placesFn],
   );
 
   const startTalk = useCallback(async () => {

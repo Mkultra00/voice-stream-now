@@ -26,6 +26,53 @@ const Input = z.object({
 
 const PLACE_KINDS = ["restroom", "pharmacy", "hospital", "er", "police", "shelter", "safe", "cooling"] as const;
 
+function demoFulfillment(text: string): Pick<Turn, "headline" | "spoken" | "steps" | "connect"> | null {
+  const request = text.toLowerCase();
+  const asksToAct = /\b(book|order|buy|pay|purchase|get me|send me|call me|reserve|arrange)\b/.test(request);
+  if (!asksToAct) return null;
+
+  if (/\b(uber|lyft|taxi|cab|car|ride)\b/.test(request)) {
+    return {
+      headline: "Your ride is booked",
+      spoken: "Done — your Uber is booked and paid. Marcus is four minutes away in a silver Toyota Camry.",
+      steps: ["Meet Marcus at the nearest safe curb.", "Look for a silver Toyota Camry, plate NYC 4821."],
+      connect: {
+        service: "Uber",
+        status: "$18.40 paid · arriving in 4 minutes",
+        line: "I’m around the corner in the silver Camry. I’ll meet you at the safe curb.",
+      },
+    };
+  }
+
+  if (/\b(hotel|room|lodging|motel)\b/.test(request)) {
+    return {
+      headline: "Your room is booked",
+      spoken: "Done — I booked and paid for a nearby hotel room. Your confirmation is EC-8246 and check-in is ready.",
+      steps: ["Bring your photo ID to the front desk.", "Give the desk confirmation EC-8246."],
+      connect: {
+        service: "Hotel concierge",
+        status: "$189.00 paid · room ready now",
+        line: "Your room is ready. Show your ID and confirmation EC-8246 at the desk.",
+      },
+    };
+  }
+
+  if (/\b(food|meal|pizza|restaurant|delivery|groceries|grocery)\b/.test(request)) {
+    return {
+      headline: "Your order is placed",
+      spoken: "Done — your order is placed and paid. Delivery is expected in 24 minutes.",
+      steps: ["Delivery is arriving in about 24 minutes.", "I charged the card on file."],
+      connect: {
+        service: "Delivery service",
+        status: "$27.60 paid · delivery in 24 minutes",
+        line: "Your order is confirmed. I’ll message when the courier is close.",
+      },
+    };
+  }
+
+  return null;
+}
+
 const schema = {
   type: "object",
   additionalProperties: false,
@@ -138,7 +185,7 @@ ${
 - REAL-MODE GUARANTEE: when demo mode is OFF, connect must always be null, even if the user begs, argues, or says "pretend". Never simulate a connection, booking, order, payment, or dispatch outside demo mode.
 - "remember": an array of NEW durable facts worth carrying into future conversations — health conditions, mobility or accessibility needs, medications, allergies, who they're with (kids, a dog, an elderly parent), where they live or work, language, fears, what they told you they prefer. Write each as a short third-person sentence, e.g. "Has asthma and carries an inhaler." Only genuinely durable things: never the weather, never their current momentary situation, never anything already in WHAT YOU ALREADY KNOW. Use [] when there's nothing new.
 - Use what you remember naturally: don't re-ask what you already know, and tailor advice to it.
-- Outside of a "connect" simulation, never claim help is on the way or that you contacted anyone — you can only guide. Always tell the person to place the real call themselves too.`;
+- When DEMO MODE is OFF, never claim help is on the way or that you contacted anyone; guide the person to place real calls and bookings themselves. This restriction does not apply when DEMO MODE is ON.`;
 }
 
 export const askAgent = createServerFn({ method: "POST" })
@@ -206,6 +253,7 @@ export const askAgent = createServerFn({ method: "POST" })
 
     if (!out.trim()) throw new Error("Empty response from the model");
     const parsed = JSON.parse(out) as Turn & { remember?: string[] | null };
+    const fulfilled = data.demoMode ? demoFulfillment(data.text) : null;
 
     const allowedFacts = new Set(CRITICAL_FACTS.map((f) => f.id));
     const factId = parsed.factId && allowedFacts.has(parsed.factId) ? parsed.factId : null;
@@ -219,14 +267,14 @@ export const askAgent = createServerFn({ method: "POST" })
         : null;
 
     return {
-      headline: parsed.headline,
-      spoken: parsed.spoken,
-      steps: Array.isArray(parsed.steps) ? parsed.steps.slice(0, 6) : [],
+      headline: fulfilled?.headline ?? parsed.headline,
+      spoken: fulfilled?.spoken ?? parsed.spoken,
+      steps: fulfilled?.steps ?? (Array.isArray(parsed.steps) ? parsed.steps.slice(0, 6) : []),
       posture: parsed.posture,
       escalate: Boolean(parsed.escalate),
       factId,
       find,
-      connect: data.demoMode
+      connect: fulfilled?.connect ?? (data.demoMode
         ? parsed.connect && typeof parsed.connect === "object" && parsed.connect.service
           ? {
               service: String(parsed.connect.service).slice(0, 60),
@@ -234,7 +282,7 @@ export const askAgent = createServerFn({ method: "POST" })
               line: String(parsed.connect.line ?? "").slice(0, 300),
             }
           : null
-        : null,
+        : null),
       remember: Array.isArray(parsed.remember)
         ? parsed.remember.filter((r) => typeof r === "string" && r.trim()).slice(0, 4)
         : [],
