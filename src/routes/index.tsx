@@ -346,7 +346,7 @@ function Concierge() {
                   <div>
                     <h3 className="font-medium">{p.name}</h3>
                     <p className="text-xs text-muted-foreground">
-                      {p.walkMin} min walk · {p.distanceM} m
+                      {formatWalk(p.walkMin)} · {formatDistance(p.distanceM)}
                       {p.address && ` · ${p.address}`}
                       {p.openNow === true && " · open 24/7"}
                       {p.openingHours && p.openNow !== true && ` · ${p.openingHours}`}
