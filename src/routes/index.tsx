@@ -349,11 +349,15 @@ function Concierge() {
             </div>
             <a
               href={demoMode ? undefined : `tel:${escalationFact.number.replace(/\D/g, "")}`}
-              onClick={(e) => demoMode && e.preventDefault()}
+              onClick={(e) => {
+                if (!demoMode) return;
+                e.preventDefault();
+                startSimCall(escalationFact.id, escalationFact.number);
+              }}
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-destructive py-4 font-display text-xl font-bold text-destructive-foreground"
             >
               <Phone className="size-5" /> Call {escalationFact.number}
-              {demoMode && <span className="text-sm font-medium">(demo-safe)</span>}
+              {demoMode && <span className="text-sm font-medium">(simulated)</span>}
             </a>
             <p className="mt-2 text-xs text-muted-foreground">
               {escalationFact.label} · from seeded critical facts, verified {FACTS_VERIFIED_ON} ·
