@@ -21,6 +21,7 @@ import { respond, redFlagTurn, postureFromAlerts, type Turn } from "@/lib/concie
 import { askAgent } from "@/lib/agent.functions";
 import { CRITICAL_FACTS, FACTS_VERIFIED_ON, POSTURE_LABEL, type Posture } from "@/lib/critical-facts";
 import { buildDemoAlert, DEMO_ALERT_LABELS, type DemoAlertKey } from "@/lib/demo-alerts";
+import { buildSimCall, type SimCall } from "@/lib/sim-call";
 import { speak, startRecording, stopSpeaking, transcribe, type Recorder } from "@/lib/recorder";
 import { formatDistance, formatWalk } from "@/lib/walk";
 import { getWalkingDirections, type WalkingDirections } from "@/lib/directions.functions";
