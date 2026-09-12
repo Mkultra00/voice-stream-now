@@ -77,7 +77,7 @@ export const getWalkingDirections = createServerFn({ method: "GET" })
       steps: (() => {
         const allSteps = route.legs.flatMap((leg) => leg.steps);
         return allSteps.map((step, i) => ({
-          instruction: stepInstruction(step, allSteps[i + 1]?.name),
+          instruction: stepInstruction(step, allSteps.slice(i + 1).find((s) => s.name)?.name),
           distanceM: Math.round(step.distance),
         }));
       })(),
