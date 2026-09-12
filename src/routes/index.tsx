@@ -143,7 +143,7 @@ function Concierge() {
       }
       setThinking(false);
     },
-    [activeAlert, loc, placesFn],
+    [activeAlert, loc, locLabel, placesFn],
   );
 
   const startTalk = useCallback(async () => {
