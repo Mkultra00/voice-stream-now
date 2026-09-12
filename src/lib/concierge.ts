@@ -161,8 +161,9 @@ export function respond(text: string, activeAlert: LiveAlert | null, ctx: Contex
   return {
     headline: "I need one detail",
     spoken:
-      "I can help with what's near you, the weather warnings in effect, or an emergency. Which one is it right now?",
+      `I can see it's ${clockPhrase(ctx.hour)} and you're near ${here}${activeAlert ? `, with a ${activeAlert.event.toLowerCase()} in effect` : ", with no weather warning in effect"}. Tell me what's happening — a place you need, the weather, or an emergency — and I'll act on it.`,
     steps: [
+      `Context I already have: ${clockPhrase(ctx.hour)}, near ${here}${activeAlert ? `, active alert: ${activeAlert.event}` : ", no active weather warning"}.`,
       "Say what you need: a restroom, a pharmacy, an ER, or a safe place.",
       "Or say what's happening and I'll take it from there.",
     ],
