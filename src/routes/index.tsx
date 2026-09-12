@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   Volume2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { getAlerts, type LiveAlert } from "@/lib/alerts.functions";
 import { findPlaces, type Place } from "@/lib/places.functions";
@@ -351,14 +352,20 @@ function Concierge() {
                       {p.openingHours && p.openNow !== true && ` · ${p.openingHours}`}
                     </p>
                   </div>
-                  <a
-                    href={`https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route=${loc.lat},${loc.lon};${p.lat},${p.lon}`}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    onClick={() => {
+                      const url = `https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route=${loc.lat},${loc.lon};${p.lat},${p.lon}`;
+                      const opened = window.open(url, "_blank", "noopener,noreferrer");
+                      if (!opened) {
+                        void navigator.clipboard.writeText(url).then(() => {
+                          toast.success("Directions link copied — paste it into your browser.");
+                        });
+                      }
+                    }}
                     className="shrink-0 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-accent-foreground"
                   >
                     Directions
-                  </a>
+                  </button>
                 </div>
               </article>
             ))}
