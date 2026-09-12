@@ -64,7 +64,12 @@ export default function MapView({
       {polygon && (
         <Polygon positions={polygon} pathOptions={{ color: "#ef4444", weight: 2, fillOpacity: 0.15 }} />
       )}
-      {routePath.length > 1 && <Polyline positions={routePath} pathOptions={{ color: "#fbbf24", weight: 5 }} />}
+      {routePath.length > 1 && (
+        <>
+          <Polyline positions={routePath} pathOptions={{ color: "#0b1220", weight: 9, opacity: 0.9 }} />
+          <Polyline positions={routePath} pathOptions={{ color: "#fbbf24", weight: 5 }} />
+        </>
+      )}
       <Marker position={[lat, lon]} icon={userIcon} />
       {places.map((p) => (
         <Marker key={p.id} position={[p.lat, p.lon]} icon={placeIcon}>
