@@ -47,8 +47,32 @@ function alertHeadline(alert: LiveAlert): string | null {
   return h ? `Official word: ${h}` : null;
 }
 
-export function respond(text: string, activeAlert: LiveAlert | null): Turn {
+export type Context = {
+  placeLabel: string | null;
+  hour: number;
+};
+
+function timePhrase(hour: number): string {
+  if (hour < 5) return "the middle of the night";
+  if (hour < 11) return "the morning";
+  if (hour < 17) return "the afternoon";
+  if (hour < 21) return "the evening";
+  return "late at night";
+}
+
+function clockPhrase(hour: number): string {
+  const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h12} ${hour < 12 ? "a.m." : "p.m."}`;
+}
+
+function where(ctx: Context): string {
+  return ctx.placeLabel && ctx.placeLabel !== "locating…" ? ctx.placeLabel : "your location";
+}
+
+export function respond(text: string, activeAlert: LiveAlert | null, ctx: Context): Turn {
   const clean = text.trim();
+  const here = where(ctx);
+  const late = ctx.hour < 6 || ctx.hour >= 23;
 
   // 1. Deterministic red flags run before anything else.
   for (const flag of RED_FLAGS) {
@@ -57,7 +81,7 @@ export function respond(text: string, activeAlert: LiveAlert | null): Turn {
       return {
         headline: flag.headline,
         spoken: flag.spoken,
-        steps: flag.steps,
+        steps: [...flag.steps, `Your location: ${here} — give this to the 911 operator.`],
         posture: flag.posture,
         escalate: true,
         factId: flag.factId,
@@ -73,12 +97,15 @@ export function respond(text: string, activeAlert: LiveAlert | null): Turn {
     const play = WEATHER_PLAYBOOK[key] ?? WEATHER_PLAYBOOK["generic"]!;
     const service = CRITICAL_FACTS.find((f) => f.id === play.serviceFact)!;
     const timing = expiryLine(activeAlert);
-    const steps = [timing, ...play.steps, alertHeadline(activeAlert)].filter(
-      (s): s is string => Boolean(s),
-    );
+    const steps = [
+      timing,
+      ...play.steps,
+      alertHeadline(activeAlert),
+      `Context: ${activeAlert.event} is in effect where you are now (${here}), checked live within the last minute.`,
+    ].filter((s): s is string => Boolean(s));
     return {
       headline: `${activeAlert.event}: ${play.now}`,
-      spoken: play.spoken,
+      spoken: `${activeAlert.event} is in effect right now near ${here}. ${play.spoken}${timing ? ` It runs for the next ${timing.split("next ")[1]?.split(" (")[0] ?? "short while"}.` : ""}`,
       steps,
       posture: "shelter",
       escalate: false,
@@ -91,13 +118,13 @@ export function respond(text: string, activeAlert: LiveAlert | null): Turn {
   // 2b. Weather question with no active warning — say so, with prep tips.
   if (!activeAlert && WEATHER_TOPIC.test(clean)) {
     return {
-      headline: "No active weather warning here right now",
+      headline: `No active weather warning near ${here}`,
       spoken:
-        "Good news: there is no active National Weather Service warning for your location right now. I'll keep checking, and if one is issued I'll show it here.",
+        `I just checked the National Weather Service feed for ${here}: no warning is in effect at this hour. I'll keep watching it, and if one is issued I'll say so immediately.`,
       steps: [
-        "No NWS warning is in effect for your location right now.",
-        "This page checks live alerts continuously — a new warning appears automatically.",
-        "For forecast details, say \"weather\" again after a warning is issued and I'll give you exact steps.",
+        `Live check: no NWS warning covers ${here} right now.`,
+        "This page re-checks the official feed every 60 seconds — a new warning appears automatically.",
+        `It's ${clockPhrase(ctx.hour)} — normal travel is fine; just keep an eye on the sky if rain is forecast.`,
         "For non-emergency city services (flooding, heat, shelter info), call 311.",
       ],
       posture: "calm",
@@ -111,16 +138,21 @@ export function respond(text: string, activeAlert: LiveAlert | null): Turn {
   // 3. Everyday valet: nearby places from OpenStreetMap.
   for (const intent of PLACE_INTENTS) {
     if (intent.patterns.test(clean)) {
-      const openNow = /(open|right now|after midnight|24 ?hour|late)/i.test(clean);
+      const openNow = late || /(open|right now|after midnight|24 ?hour|late)/i.test(clean);
       return {
-        headline: intent.label + " near you",
-        spoken: `Looking for the closest ${intent.label.toLowerCase()}${openNow ? " that should be open" : ""}. Here's what's nearest.`,
-        steps: [],
+        headline: `${intent.label} near ${here}`,
+        spoken:
+          `It's ${clockPhrase(ctx.hour)} — ${timePhrase(ctx.hour)} near ${here}. ` +
+          `Here are the closest ${intent.label.toLowerCase()}${openNow ? ", prioritizing ones that should be open at this hour" : ""}, ranked by walking time from where you're standing.`,
+        steps: [
+          `Context: ${clockPhrase(ctx.hour)}, near ${here}.`,
+          ...(late ? ["It's late — some smaller places may be closed; 24-hour options are listed first."] : []),
+        ],
         posture: "calm",
         escalate: false,
         factId: null,
         find: { kind: intent.kind, label: intent.label, radius: intent.radius },
-        provenance: "OpenStreetMap via Overpass, ranked by walking distance.",
+        provenance: `OpenStreetMap via Overpass, ranked by walking distance from ${here}.`,
       };
     }
   }
@@ -129,8 +161,9 @@ export function respond(text: string, activeAlert: LiveAlert | null): Turn {
   return {
     headline: "I need one detail",
     spoken:
-      "I can help with what's near you, the weather warnings in effect, or an emergency. Which one is it right now?",
+      `I can see it's ${clockPhrase(ctx.hour)} and you're near ${here}${activeAlert ? `, with a ${activeAlert.event.toLowerCase()} in effect` : ", with no weather warning in effect"}. Tell me what's happening — a place you need, the weather, or an emergency — and I'll act on it.`,
     steps: [
+      `Context I already have: ${clockPhrase(ctx.hour)}, near ${here}${activeAlert ? `, active alert: ${activeAlert.event}` : ", no active weather warning"}.`,
       "Say what you need: a restroom, a pharmacy, an ER, or a safe place.",
       "Or say what's happening and I'll take it from there.",
     ],

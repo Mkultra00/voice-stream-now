@@ -122,7 +122,7 @@ function Concierge() {
       setDoneSteps([]);
       setMessages((m) => [...m, { id: Date.now(), role: "you", text }]);
       setThinking(true);
-      const result = respond(text, activeAlert);
+      const result = respond(text, activeAlert, { placeLabel: locLabel, hour: new Date().getHours() });
       setTurn(result);
       setMessages((m) => [...m, { id: Date.now() + 1, role: "concierge", text: result.spoken }]);
       void speak(result.spoken).catch((e: Error) => setError(e.message));
@@ -143,7 +143,7 @@ function Concierge() {
       }
       setThinking(false);
     },
-    [activeAlert, loc, placesFn],
+    [activeAlert, loc, locLabel, placesFn],
   );
 
   const startTalk = useCallback(async () => {
