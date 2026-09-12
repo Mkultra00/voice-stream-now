@@ -134,44 +134,79 @@ export const RED_FLAGS: RedFlag[] = [
 ];
 
 // Seeded playbooks. The wording below is fixed content, not generated.
-export const WEATHER_PLAYBOOK: Record<string, { spoken: string; steps: string[] }> = {
+export type Playbook = {
+  spoken: string;
+  steps: string[];
+  /** one short "do this now" line shown as the headline action */
+  now: string;
+  /** verified fact id for the follow-up city services line */
+  serviceFact: string;
+  placeKind: "shelter" | "cooling";
+  placeLabel: string;
+};
+
+export const WEATHER_PLAYBOOK: Record<string, Playbook> = {
   flood: {
+    now: "Get indoors and up — not down.",
     spoken:
-      "Get indoors and go up, not down. Do not enter the subway, basements, or underpasses, and never walk into moving water.",
+      "Get indoors and go up, not down. Do not enter the subway, a basement, or an underpass, and never walk into moving water. Six inches of moving water can knock you down; two feet can carry a car away.",
     steps: [
-      "Move indoors and to a higher floor if you can.",
-      "Do not enter the subway, a basement, or an underpass.",
-      "Never walk or drive through moving water — six inches can knock you down.",
-      "Stay off the street until the warning expires.",
+      "Right now: move indoors and to a higher floor. Basements and ground floors flood first.",
+      "Stay out of the subway — stations and tunnels flood fast and pumps get overwhelmed.",
+      "Never walk or drive through moving water. Six inches can knock you down, two feet can float a car.",
+      "Avoid underpasses, under-elevated tracks, and low intersections — they fill first.",
+      "If water rises around you and you cannot get above it, call 911 and tell them you are trapped.",
+      "If your building floods or you need shelter info, call 311.",
     ],
+    serviceFact: "311",
+    placeKind: "shelter",
+    placeLabel: "Indoor, above-ground places near you",
   },
   heat: {
+    now: "Get into air conditioning within the next 30 minutes.",
     spoken:
-      "Get out of the sun and into air conditioning. Drink water now, and check on anyone older nearby.",
+      "Get out of the sun and into air conditioning as soon as you can. Drink water now, even if you are not thirsty. If you feel dizzy, confused, or stop sweating, that is heat stroke — call 911.",
     steps: [
-      "Move into air conditioning — a library, lobby, or cooling center.",
-      "Drink water now, even if you are not thirsty.",
-      "Skip strenuous activity until after sunset.",
-      "Check on older neighbors and anyone without AC.",
+      "Right now: head to the nearest air-conditioned place below — a library, store, or lobby works.",
+      "Drink water now, even if you are not thirsty. Skip alcohol and caffeine.",
+      "Heat stroke signs: confusion, hot dry skin, no sweating, fainting. That is a 911 call, not a wait.",
+      "Wear light clothing, and skip exercise until after sunset.",
+      "Check on older neighbors and anyone without AC by phone or text.",
+      "NYC opens free cooling centers during extreme heat — call 311 for the closest one.",
     ],
+    serviceFact: "311",
+    placeKind: "cooling",
+    placeLabel: "Air-conditioned places near you",
   },
   tornado: {
+    now: "Move to the lowest interior room now — away from windows.",
     spoken:
-      "Get to the lowest interior room away from windows, right now, and stay there until the warning expires.",
+      "Get to the lowest interior room away from windows right now, and stay there until the warning expires. If you are outside and cannot reach a building, lie flat in a ditch and cover your head.",
     steps: [
-      "Go to the lowest floor, interior room, away from all windows.",
-      "Do not stay in a vehicle or under an overpass.",
-      "Cover your head and neck.",
-      "Stay put until the warning expires, not until it looks calm.",
+      "Right now: go to the lowest floor, an interior room or hallway, away from every window.",
+      "Do not stay in a vehicle, and do not shelter under a highway overpass.",
+      "Cover your head and neck with your arms, a coat, or a bag.",
+      "If you are caught outside with no building, lie flat in the lowest spot you can find.",
+      "Stay put until the warning expires — a lull can be the eye, not the end.",
+      "After it passes, avoid downed wires and report damage or injuries via 911.",
     ],
+    serviceFact: "911",
+    placeKind: "shelter",
+    placeLabel: "Sturdy buildings near you",
   },
   generic: {
-    spoken: "Get indoors, stay off the street, and wait for the warning to expire.",
+    now: "Get indoors and stay off the street.",
+    spoken:
+      "Get indoors, stay off the street, and wait for the warning to expire. Keep your phone charged and listen for updates — conditions can get worse before the warning ends.",
     steps: [
-      "Move indoors to a safe, sturdy building.",
-      "Stay off the street and away from windows.",
-      "Keep your phone charged and this page open.",
+      "Right now: move into a sturdy building, away from windows.",
+      "Stay off the street until the warning expires — falling debris is the main danger.",
+      "Charge your phone and keep this page open for updates.",
+      "If someone is hurt or in danger, call 911. For city services, call 311.",
     ],
+    serviceFact: "311",
+    placeKind: "shelter",
+    placeLabel: "Indoor public places near you",
   },
 };
 

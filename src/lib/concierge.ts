@@ -30,6 +30,22 @@ const PLACE_INTENTS: { patterns: RegExp; kind: PlaceKind; label: string; radius:
 ];
 
 const HELP_NOW = /(what should i do|what do i do|help me|i'?m on the street|what now|next step)/i;
+const WEATHER_TOPIC = /(flood|storm|hurricane|tornado|blizzard|thunderstorm|heat wave|heat|warning|weather|rain|wind|snow)/i;
+
+function expiryLine(alert: LiveAlert): string | null {
+  if (!alert.expires) return null;
+  const ms = new Date(alert.expires).getTime() - Date.now();
+  if (ms <= 0) return null;
+  const mins = Math.round(ms / 60_000);
+  const clock = new Date(alert.expires).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const span = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins} min`;
+  return `Timing: this ${alert.event.toLowerCase()} is in effect for the next ${span} (until ${clock}).`;
+}
+
+function alertHeadline(alert: LiveAlert): string | null {
+  const h = alert.headline?.trim();
+  return h ? `Official word: ${h}` : null;
+}
 
 export function respond(text: string, activeAlert: LiveAlert | null): Turn {
   const clean = text.trim();
@@ -51,18 +67,44 @@ export function respond(text: string, activeAlert: LiveAlert | null): Turn {
     }
   }
 
-  // 2. Active warning + a "what do I do" question -> seeded weather playbook.
-  if (activeAlert && HELP_NOW.test(clean)) {
-    const play = WEATHER_PLAYBOOK[playbookKeyFor(activeAlert.event)] ?? WEATHER_PLAYBOOK["generic"]!;
+  // 2. Active warning + a "what do I do" / weather question -> seeded playbook.
+  if (activeAlert && (HELP_NOW.test(clean) || WEATHER_TOPIC.test(clean))) {
+    const key = playbookKeyFor(activeAlert.event);
+    const play = WEATHER_PLAYBOOK[key] ?? WEATHER_PLAYBOOK["generic"]!;
+    const service = CRITICAL_FACTS.find((f) => f.id === play.serviceFact)!;
+    const timing = expiryLine(activeAlert);
+    const steps = [timing, ...play.steps, alertHeadline(activeAlert)].filter(
+      (s): s is string => Boolean(s),
+    );
     return {
-      headline: `${activeAlert.event}: stay off the street`,
+      headline: `${activeAlert.event}: ${play.now}`,
       spoken: play.spoken,
-      steps: play.steps,
-      posture: playbookKeyFor(activeAlert.event) === "flood" ? "shelter" : "shelter",
+      steps,
+      posture: "shelter",
       escalate: false,
-      factId: null,
-      find: { kind: "shelter", label: "Indoor public spaces near you", radius: 1200 },
-      provenance: `Seeded weather playbook for "${activeAlert.event}" + live NWS alert.`,
+      factId: play.serviceFact,
+      find: { kind: play.placeKind, label: play.placeLabel, radius: 1500 },
+      provenance: `Seeded ${key} playbook + live NWS alert (${activeAlert.source}). ${service.number} from verified critical facts.`,
+    };
+  }
+
+  // 2b. Weather question with no active warning — say so, with prep tips.
+  if (!activeAlert && WEATHER_TOPIC.test(clean)) {
+    return {
+      headline: "No active weather warning here right now",
+      spoken:
+        "Good news: there is no active National Weather Service warning for your location right now. I'll keep checking, and if one is issued I'll show it here.",
+      steps: [
+        "No NWS warning is in effect for your location right now.",
+        "This page checks live alerts continuously — a new warning appears automatically.",
+        "For forecast details, say \"weather\" again after a warning is issued and I'll give you exact steps.",
+        "For non-emergency city services (flooding, heat, shelter info), call 311.",
+      ],
+      posture: "calm",
+      escalate: false,
+      factId: "311",
+      find: null,
+      provenance: "Live NWS alert check returned no active warnings; 311 from verified critical facts.",
     };
   }
 
