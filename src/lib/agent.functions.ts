@@ -17,6 +17,7 @@ const Input = z.object({
   memory: z.array(z.string()).max(40).default([]),
   placeLabel: z.string(),
   localTime: z.string(),
+  demoMode: z.boolean().default(false),
   alert: z
     .object({ event: z.string(), headline: z.string(), expires: z.string().nullable(), areaDesc: z.string() })
     .nullable()
