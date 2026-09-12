@@ -28,7 +28,7 @@ const PLACE_KINDS = ["restroom", "pharmacy", "hospital", "er", "police", "shelte
 const schema = {
   type: "object",
   additionalProperties: false,
-  required: ["headline", "spoken", "steps", "posture", "escalate", "factId", "find", "remember"],
+  required: ["headline", "spoken", "steps", "posture", "escalate", "factId", "find", "connect", "remember"],
   properties: {
     headline: { type: "string" },
     spoken: { type: "string" },
