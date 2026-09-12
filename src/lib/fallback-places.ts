@@ -1,3 +1,4 @@
+import { walkMinutes } from "./walk";
 import type { Place, PlaceKind } from "./places.functions";
 
 // Curated NYC fallback so a live demo never shows an empty result when the
@@ -82,7 +83,7 @@ export function fallbackPlaces(kind: PlaceKind, lat: number, lon: number, limit:
         lat: s.lat,
         lon: s.lon,
         distanceM,
-        walkMin: Math.max(1, Math.round(distanceM / 80)),
+        walkMin: walkMinutes(distanceM),
         openingHours: s.openingHours ?? null,
         phone: s.phone ?? null,
         address: s.address ?? null,
@@ -90,6 +91,7 @@ export function fallbackPlaces(kind: PlaceKind, lat: number, lon: number, limit:
         source: "OpenStreetMap (cached local copy)",
       };
     })
+    .filter((p) => p.distanceM <= MAX_FALLBACK_M)
     .sort((a, b) => a.distanceM - b.distanceM)
     .slice(0, limit);
 }

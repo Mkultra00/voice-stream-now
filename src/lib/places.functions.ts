@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { fallbackPlaces } from "./fallback-places";
+import { walkMinutes } from "./walk";
 
 // Nearby places from OpenStreetMap via the Overpass API. No API key needed.
 
@@ -167,7 +168,7 @@ function toPlace(el: OverpassElement, kind: PlaceKind, lat: number, lon: number)
     lat: plat,
     lon: plon,
     distanceM: Math.round(distanceM),
-    walkMin: Math.max(1, Math.round(distanceM / 80)),
+    walkMin: walkMinutes(distanceM),
     openingHours: tags["opening_hours"] ?? null,
     phone: tags["phone"] ?? tags["contact:phone"] ?? null,
     address: street || null,
