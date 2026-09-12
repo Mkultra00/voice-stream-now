@@ -41,7 +41,7 @@ async function streetNameAt(lon: number, lat: number): Promise<string> {
     });
     if (!response.ok) return "";
     const payload = (await response.json()) as { features?: Array<{ properties?: { street?: string; name?: string } }> };
-    return payload.features?.[0]?.properties?.street ?? payload.features?.[0]?.properties?.name ?? "";
+    return payload.features?.[0]?.properties?.street ?? "";
   } catch {
     return "";
   }
