@@ -42,6 +42,11 @@ function expiryLine(alert: LiveAlert): string | null {
   return `Timing: this ${alert.event.toLowerCase()} is in effect for the next ${span} (until ${clock}).`;
 }
 
+function alertHeadline(alert: LiveAlert): string | null {
+  const h = alert.headline?.trim();
+  return h ? `Official word: ${h}` : null;
+}
+
 export function respond(text: string, activeAlert: LiveAlert | null): Turn {
   const clean = text.trim();
 
