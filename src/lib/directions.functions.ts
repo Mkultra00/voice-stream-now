@@ -86,10 +86,18 @@ export const getWalkingDirections = createServerFn({ method: "GET" })
       distanceM: Math.round(route.distance),
       durationMin: Math.max(1, Math.round(route.duration / 60)),
       path: route.geometry.coordinates.map(([lon, lat]) => [lat, lon]),
-      steps: (() => {
+      steps: await (async () => {
         const allSteps = route.legs.flatMap((leg) => leg.steps);
+        // Foot routing often leaves segments unnamed; reverse-geocode each
+        // turn point so every instruction can name a street.
+        const names = await Promise.all(
+          allSteps.map((step) => {
+            const loc = step.maneuver?.location;
+            return step.name ? Promise.resolve(step.name) : loc ? streetNameAt(loc[0], loc[1]) : Promise.resolve("");
+          }),
+        );
         return allSteps.map((step, i) => ({
-          instruction: stepInstruction(step, allSteps.slice(i + 1).find((s) => s.name)?.name),
+          instruction: stepInstruction(step, step.name || names[i] || allSteps.slice(i + 1).find((s) => s.name)?.name || ""),
           distanceM: Math.round(step.distance),
         }));
       })(),
