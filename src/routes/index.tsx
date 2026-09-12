@@ -85,6 +85,10 @@ function Concierge() {
   const [loadingDirections, setLoadingDirections] = useState<string | null>(null);
   const [doneSteps, setDoneSteps] = useState<number[]>([]);
   const recorderRef = useRef<Recorder | null>(null);
+  const messagesRef = useRef<Msg[]>([]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   const activeAlert = demoAlert ?? liveAlerts[0] ?? null;
   const posture: Posture = turn?.posture ?? (demoAlert ? "shelter" : postureFromAlerts(liveAlerts));
