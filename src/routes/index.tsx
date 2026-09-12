@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -10,6 +11,7 @@ import {
   Phone,
   RefreshCw,
   ShieldAlert,
+  Trash2,
   X,
   Volume2,
 } from "lucide-react";
@@ -727,10 +729,14 @@ function Concierge() {
                 forgetAll();
                 setMemory([]);
                 setMessages([]);
+                toast("Memory cleared. The concierge no longer remembers this conversation.", {
+                  icon: <Trash2 className="size-4" />,
+                  duration: 2500,
+                });
               }}
-              className="mt-1 rounded-lg border border-border px-3 py-2 text-xs"
+              className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm font-bold text-destructive transition-colors hover:bg-destructive/20 active:bg-destructive/30 active:scale-[0.98]"
             >
-              Clear memory
+              <Trash2 className="size-4" /> Clear memory
             </button>
           </section>
         )}
