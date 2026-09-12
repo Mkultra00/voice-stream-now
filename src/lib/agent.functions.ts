@@ -37,6 +37,16 @@ const schema = {
     escalate: { type: "boolean" },
     factId: { type: ["string", "null"], enum: ["911", "311", "988", "poison", null] },
     remember: { type: ["array", "null"], items: { type: "string" } },
+    connect: {
+      type: ["object", "null"],
+      additionalProperties: false,
+      required: ["service", "status", "line"],
+      properties: {
+        service: { type: "string" },
+        status: { type: "string" },
+        line: { type: "string" },
+      },
+    },
     find: {
       type: ["object", "null"],
       additionalProperties: false,
