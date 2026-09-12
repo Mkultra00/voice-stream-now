@@ -47,8 +47,32 @@ function alertHeadline(alert: LiveAlert): string | null {
   return h ? `Official word: ${h}` : null;
 }
 
-export function respond(text: string, activeAlert: LiveAlert | null): Turn {
+export type Context = {
+  placeLabel: string | null;
+  hour: number;
+};
+
+function timePhrase(hour: number): string {
+  if (hour < 5) return "the middle of the night";
+  if (hour < 11) return "the morning";
+  if (hour < 17) return "the afternoon";
+  if (hour < 21) return "the evening";
+  return "late at night";
+}
+
+function clockPhrase(hour: number): string {
+  const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h12} ${hour < 12 ? "a.m." : "p.m."}`;
+}
+
+function where(ctx: Context): string {
+  return ctx.placeLabel && ctx.placeLabel !== "locating…" ? ctx.placeLabel : "your location";
+}
+
+export function respond(text: string, activeAlert: LiveAlert | null, ctx: Context): Turn {
   const clean = text.trim();
+  const here = where(ctx);
+  const late = ctx.hour < 6 || ctx.hour >= 23;
 
   // 1. Deterministic red flags run before anything else.
   for (const flag of RED_FLAGS) {
