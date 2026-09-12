@@ -307,10 +307,31 @@ function Concierge() {
               : "NWS feed unavailable"}
             {checkedAt && ` · ${timeOf(checkedAt)}`}
           </span>
+          <button
+            onClick={() => {
+              const next = !demoMode;
+              setDemoMode(next);
+              if (!next) {
+                setDemoAlert(null);
+                setSimCall(null);
+              }
+            }}
+            aria-pressed={demoMode}
+            className={`rounded-full px-2.5 py-1 font-bold ${
+              demoMode
+                ? "bg-demo text-demo-foreground"
+                : "border border-border text-muted-foreground"
+            }`}
+          >
+            {demoMode ? "DEMO MODE ON" : "Demo mode"}
+          </button>
           {demoMode && (
-            <span className="rounded-full bg-demo px-2.5 py-1 font-bold text-demo-foreground">
-              DEMO MODE ON
-            </span>
+            <button
+              onClick={() => setDemoOpen((o) => !o)}
+              className="rounded-full border border-demo px-2.5 py-1 font-medium text-demo"
+            >
+              Demo controls
+            </button>
           )}
           <span className="rounded-full border border-border px-2.5 py-1 text-muted-foreground">
             Demo — not an emergency service
