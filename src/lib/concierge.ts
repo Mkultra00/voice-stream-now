@@ -118,13 +118,13 @@ export function respond(text: string, activeAlert: LiveAlert | null, ctx: Contex
   // 2b. Weather question with no active warning — say so, with prep tips.
   if (!activeAlert && WEATHER_TOPIC.test(clean)) {
     return {
-      headline: "No active weather warning here right now",
+      headline: `No active weather warning near ${here}`,
       spoken:
-        "Good news: there is no active National Weather Service warning for your location right now. I'll keep checking, and if one is issued I'll show it here.",
+        `I just checked the National Weather Service feed for ${here}: no warning is in effect at this hour. I'll keep watching it, and if one is issued I'll say so immediately.`,
       steps: [
-        "No NWS warning is in effect for your location right now.",
-        "This page checks live alerts continuously — a new warning appears automatically.",
-        "For forecast details, say \"weather\" again after a warning is issued and I'll give you exact steps.",
+        `Live check: no NWS warning covers ${here} right now.`,
+        "This page re-checks the official feed every 60 seconds — a new warning appears automatically.",
+        `It's ${clockPhrase(ctx.hour)} — normal travel is fine; just keep an eye on the sky if rain is forecast.`,
         "For non-emergency city services (flooding, heat, shelter info), call 311.",
       ],
       posture: "calm",
