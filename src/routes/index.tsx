@@ -121,9 +121,35 @@ function Concierge() {
       if (!text.trim()) return;
       setError(null);
       setDoneSteps([]);
+      const history = messagesRef.current.slice(-10).map((m) => ({ role: m.role, text: m.text }));
       setMessages((m) => [...m, { id: Date.now(), role: "you", text }]);
       setThinking(true);
-      const result = respond(text, activeAlert, { placeLabel: locLabel, hour: new Date().getHours() });
+      const ctx = { placeLabel: locLabel, hour: new Date().getHours() };
+
+      // Deterministic red flags always win — no model involved.
+      let result = redFlagTurn(text, ctx);
+      if (!result) {
+        try {
+          result = await agentFn({
+            data: {
+              text,
+              history,
+              placeLabel: locLabel,
+              localTime: new Date().toLocaleString([], { weekday: "long", hour: "numeric", minute: "2-digit" }),
+              alert: activeAlert
+                ? {
+                    event: activeAlert.event,
+                    headline: activeAlert.headline ?? "",
+                    expires: activeAlert.expires ?? null,
+                    areaDesc: activeAlert.areaDesc ?? "",
+                  }
+                : null,
+            },
+          });
+        } catch {
+          result = respond(text, activeAlert, ctx);
+        }
+      }
       setTurn(result);
       setMessages((m) => [...m, { id: Date.now() + 1, role: "concierge", text: result.spoken }]);
       void speak(result.spoken).catch((e: Error) => setError(e.message));
